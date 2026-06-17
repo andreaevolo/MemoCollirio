@@ -212,11 +212,36 @@
       <div class="flex gap-4">
         <button id="btn-cancel-reset"
           class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl rounded-2xl p-5 transition-colors">
-          Annulla
+          Annullahealeyestracker
         </button>
         <button id="btn-confirm-reset"
           class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold text-xl rounded-2xl p-5 transition-colors">
           Resetta
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== RECALCULATE MODAL ===================== -->
+  <div id="recalc-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/60">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-8 max-w-md w-full shadow-2xl text-center fade-in-up">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/20 mb-5">
+        <svg class="w-9 h-9 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+        </svg>
+      </div>
+      <h2 class="text-2xl font-extrabold text-white mb-4">Orario diverso dal previsto</h2>
+      <p id="recalc-message" class="text-xl leading-relaxed text-slate-300 mb-8"></p>
+      <div class="flex flex-col sm:flex-row gap-4">
+        <button id="btn-recalc-no"
+          class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl rounded-2xl p-5 transition-colors">
+          NO, Mantieni orari
+        </button>
+        <button id="btn-recalc-yes"
+          class="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-extrabold text-xl rounded-2xl p-5 shadow-lg shadow-sky-600/30 transition-colors">
+          SÌ, Ricalcola
         </button>
       </div>
     </div>
@@ -259,9 +284,14 @@
     const headerDate = document.getElementById('header-date');
     const progressBar = document.getElementById('progress-bar');
     const progressLabel = document.getElementById('progress-label');
+    const recalcModal = document.getElementById('recalc-modal');
+    const recalcMessage = document.getElementById('recalc-message');
+    const btnRecalcYes = document.getElementById('btn-recalc-yes');
+    const btnRecalcNo = document.getElementById('btn-recalc-no');
 
     // ── State ───────────────────────────────────────────────
     let schedule = null; // { createdAt, startTime, doses: [ { cycle, drop, time, taken } ] }
+    let pendingRecalc = null; // { index, actualTime (HH:MM), scheduledTime, deltaMinutes }
 
     // ── Helpers ─────────────────────────────────────────────
     function pad(n) { return String(n).padStart(2, '0'); }
@@ -270,6 +300,16 @@
       // Wrap around midnight
       const m = ((totalMinutes % 1440) + 1440) % 1440;
       return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+    }
+
+    function timeToMinutes(timeStr) {
+      const [h, m] = timeStr.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    function getCurrentTimeStr() {
+      const now = new Date();
+      return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
     }
 
     function formatDateIT(date) {
@@ -427,10 +467,87 @@
       }
     }
 
-    // ── Toggle dose ─────────────────────────────────────────
+    // ── Toggle dose (with recalculation check) ──────────────
+    const TOLERANCE_MINUTES = 10;
+
     function toggleDose(index) {
       if (!schedule) return;
-      schedule.doses[index].taken = !schedule.doses[index].taken;
+      const dose = schedule.doses[index];
+
+      // If already taken → simply un-take (toggle off), no recalc prompt
+      if (dose.taken) {
+        dose.taken = false;
+        saveSchedule();
+        renderDashboard();
+        return;
+      }
+
+      // Capture current system time
+      const actualTime = getCurrentTimeStr();
+      const scheduledTime = dose.time;
+      const actualMin = timeToMinutes(actualTime);
+      const scheduledMin = timeToMinutes(scheduledTime);
+
+      // Compute signed delta (positive = late, negative = early)
+      // Handle midnight wrap: pick the shortest path
+      let delta = actualMin - scheduledMin;
+      if (delta > 720) delta -= 1440;
+      if (delta < -720) delta += 1440;
+
+      const absDelta = Math.abs(delta);
+
+      if (absDelta >= TOLERANCE_MINUTES) {
+        // Check if there are any future untaken doses to recalculate
+        const hasFutureDoses = schedule.doses.some((d, i) => i !== index && !d.taken);
+
+        if (hasFutureDoses) {
+          // Show recalc modal
+          const direction = delta > 0 ? 'in ritardo' : 'in anticipo';
+          const drop = DROPS[dose.dropIndex];
+          recalcMessage.innerHTML = `Hai preso <strong class="text-white">${drop.name}</strong> alle <strong class="text-white">${actualTime}</strong> invece delle <strong class="text-white">${scheduledTime}</strong> (${absDelta} min ${direction}).<br><br>Vuoi ricalcolare gli orari dei prossimi colliri?`;
+
+          pendingRecalc = { index, actualTime, scheduledTime, deltaMinutes: delta };
+          recalcModal.classList.remove('hidden');
+          return; // Wait for user decision
+        }
+      }
+
+      // Within tolerance or no future doses → just mark as taken
+      dose.taken = true;
+      saveSchedule();
+      renderDashboard();
+    }
+
+    function handleRecalcYes() {
+      if (!pendingRecalc || !schedule) return;
+      const { index, deltaMinutes } = pendingRecalc;
+
+      // Mark the clicked dose as taken (keep its displayed time unchanged)
+      schedule.doses[index].taken = true;
+
+      // Shift ALL future untaken doses by the delta
+      schedule.doses.forEach((d, i) => {
+        if (i !== index && !d.taken) {
+          const currentMin = timeToMinutes(d.time);
+          d.time = minutesToTime(currentMin + deltaMinutes);
+        }
+      });
+
+      pendingRecalc = null;
+      recalcModal.classList.add('hidden');
+      saveSchedule();
+      renderDashboard();
+    }
+
+    function handleRecalcNo() {
+      if (!pendingRecalc || !schedule) return;
+      const { index } = pendingRecalc;
+
+      // Just mark as taken, don't touch other times
+      schedule.doses[index].taken = true;
+
+      pendingRecalc = null;
+      recalcModal.classList.add('hidden');
       saveSchedule();
       renderDashboard();
     }
@@ -480,6 +597,14 @@
     // Close modal on backdrop click
     confirmModal.addEventListener('click', (e) => {
       if (e.target === confirmModal) confirmModal.classList.add('hidden');
+    });
+
+    // ── Recalculate modal listeners ─────────────────────────
+    btnRecalcYes.addEventListener('click', handleRecalcYes);
+    btnRecalcNo.addEventListener('click', handleRecalcNo);
+
+    recalcModal.addEventListener('click', (e) => {
+      if (e.target === recalcModal) handleRecalcNo(); // treat backdrop click as "No"
     });
 
     // ── Init ────────────────────────────────────────────────
