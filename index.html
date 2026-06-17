@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tracker Colliri Giornaliero</title>
+  <meta name="description"
+    content="Applicazione per il tracciamento giornaliero dei colliri. Interfaccia semplice e accessibile." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    /* Smooth transitions for dose cards */
+    .dose-card {
+      transition: background-color 0.3s ease, transform 0.15s ease, box-shadow 0.3s ease;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .dose-card:active {
+      transform: scale(0.97);
+    }
+
+    /* Pulse animation for the checkmark */
+    @keyframes popIn {
+      0% {
+        transform: scale(0);
+        opacity: 0;
+      }
+
+      60% {
+        transform: scale(1.3);
+      }
+
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    .check-pop {
+      animation: popIn 0.35s ease-out forwards;
+    }
+
+    /* Fade-in for sections */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in-up {
+      animation: fadeInUp 0.45s ease-out forwards;
+    }
+
+    /* Staggered children */
+    .stagger>*:nth-child(1) {
+      animation-delay: 0.05s;
+    }
+
+    .stagger>*:nth-child(2) {
+      animation-delay: 0.12s;
+    }
+
+    .stagger>*:nth-child(3) {
+      animation-delay: 0.19s;
+    }
+
+    .stagger>*:nth-child(4) {
+      animation-delay: 0.26s;
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #475569;
+      border-radius: 3px;
+    }
+
+    /* Confirmation modal backdrop */
+    .modal-backdrop {
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+  </style>
+</head>
+
+<body class="bg-slate-900 text-white min-h-screen font-sans">
+
+  <!-- ===================== SETUP SCREEN ===================== -->
+  <section id="setup-screen" class="min-h-screen flex items-center justify-center px-4 py-8">
+    <div class="w-full max-w-md fade-in-up">
+      <!-- Icon -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-sky-600/20 mb-5">
+          <svg class="w-14 h-14 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C12 2 8 6 8 10a4 4 0 0 0 8 0c0-4-4-8-4-8Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 14v4m0 0h-2m2 0h2" />
+          </svg>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+          Tracker Colliri
+        </h1>
+        <p class="mt-3 text-lg text-slate-400">
+          Imposta l'orario del primo collirio per generare il programma giornaliero.
+        </p>
+      </div>
+
+      <!-- Card -->
+      <div class="bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-700/60">
+        <label for="start-time" class="block text-xl font-bold text-slate-200 mb-4">
+          Orario primo collirio (Desadoc)
+        </label>
+        <input type="time" id="start-time"
+          class="w-full text-center text-4xl font-bold bg-slate-700 border-2 border-slate-600 rounded-2xl p-5 text-white focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/40"
+          value="08:00" />
+
+        <button id="btn-use-now"
+          class="w-full mt-5 flex items-center justify-center gap-3 bg-slate-700 hover:bg-slate-600 text-sky-300 font-bold text-xl rounded-2xl p-5 transition-colors">
+          <!-- Clock icon -->
+          <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <path stroke-linecap="round" d="M12 6v6l4 2" />
+          </svg>
+          Usa Orario Attuale
+        </button>
+
+        <button id="btn-generate"
+          class="w-full mt-4 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-extrabold text-2xl rounded-2xl p-6 shadow-lg shadow-sky-600/30 transition-colors">
+          Genera Programma Giornaliero
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DASHBOARD SCREEN ===================== -->
+  <section id="dashboard-screen" class="hidden min-h-screen pb-8">
+    <!-- Header -->
+    <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-700/60 px-4 py-4">
+      <div class="max-w-lg mx-auto flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-extrabold tracking-tight">Programma Colliri</h1>
+          <p id="header-date" class="text-sm text-slate-400 mt-0.5"></p>
+        </div>
+        <button id="btn-reset"
+          class="flex items-center gap-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-bold text-base rounded-xl px-4 py-3 transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+          </svg>
+          Reset
+        </button>
+      </div>
+    </header>
+
+    <!-- Progress bar -->
+    <div class="max-w-lg mx-auto px-4 mt-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-bold text-slate-400">Progresso giornaliero</span>
+        <span id="progress-label" class="text-sm font-extrabold text-sky-400">0 / 16</span>
+      </div>
+      <div class="w-full h-3 bg-slate-700 rounded-full overflow-hidden">
+        <div id="progress-bar"
+          class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 rounded-full transition-all duration-500 ease-out"
+          style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- Schedule -->
+    <div id="schedule-container" class="max-w-lg mx-auto px-4 mt-6 space-y-8"></div>
+  </section>
+
+  <!-- ===================== CONFIRMATION MODAL ===================== -->
+  <div id="confirm-modal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/60">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl p-8 max-w-sm w-full shadow-2xl text-center fade-in-up">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-600/20 mb-5">
+        <svg class="w-9 h-9 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+        </svg>
+      </div>
+      <h2 class="text-2xl font-extrabold text-white mb-3">Resettare tutto?</h2>
+      <p class="text-lg text-slate-400 mb-8">Sei sicuro di voler resettare la giornata? Tutti i dati verranno
+        cancellati.</p>
+      <div class="flex gap-4">
+        <button id="btn-cancel-reset"
+          class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl rounded-2xl p-5 transition-colors">
+          Annulla
+        </button>
+        <button id="btn-confirm-reset"
+          class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold text-xl rounded-2xl p-5 transition-colors">
+          Resetta
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== JAVASCRIPT ===================== -->
+  <script>
+    // ── Config ──────────────────────────────────────────────
+    // Names and colors for each eye drop. Easy to customize.
+    const DROPS = [
+      { name: 'Desadoc', shortName: 'Desadoc', color: 'sky', offsetMinutes: 0 },
+      { name: 'Quimox', shortName: 'Quimox', color: 'violet', offsetMinutes: 60 },
+      { name: 'Zamidine', shortName: 'Zamidine', color: 'amber', offsetMinutes: 90 },
+      { name: 'Etacortilen', shortName: 'Etacortilen', color: 'rose', offsetMinutes: 120 },
+    ];
+
+    const CYCLES = 4;
+    const CYCLE_GAP_HOURS = 4;
+    const STORAGE_KEY = 'healeyetracker_data';
+
+    // Color mappings for Tailwind classes (we can't use dynamic classes with CDN build, so we map them)
+    const COLOR_MAP = {
+      sky: { bg: 'bg-sky-600/15', border: 'border-sky-500/30', text: 'text-sky-400', badge: 'bg-sky-500/20 text-sky-300', dot: 'bg-sky-400' },
+      violet: { bg: 'bg-violet-600/15', border: 'border-violet-500/30', text: 'text-violet-400', badge: 'bg-violet-500/20 text-violet-300', dot: 'bg-violet-400' },
+      amber: { bg: 'bg-amber-600/15', border: 'border-amber-500/30', text: 'text-amber-400', badge: 'bg-amber-500/20 text-amber-300', dot: 'bg-amber-400' },
+      rose: { bg: 'bg-rose-600/15', border: 'border-rose-500/30', text: 'text-rose-400', badge: 'bg-rose-500/20 text-rose-300', dot: 'bg-rose-400' },
+    };
+
+    // ── DOM refs ────────────────────────────────────────────
+    const setupScreen = document.getElementById('setup-screen');
+    const dashboardScreen = document.getElementById('dashboard-screen');
+    const startTimeInput = document.getElementById('start-time');
+    const btnUseNow = document.getElementById('btn-use-now');
+    const btnGenerate = document.getElementById('btn-generate');
+    const btnReset = document.getElementById('btn-reset');
+    const btnCancelReset = document.getElementById('btn-cancel-reset');
+    const btnConfirmReset = document.getElementById('btn-confirm-reset');
+    const confirmModal = document.getElementById('confirm-modal');
+    const scheduleContainer = document.getElementById('schedule-container');
+    const headerDate = document.getElementById('header-date');
+    const progressBar = document.getElementById('progress-bar');
+    const progressLabel = document.getElementById('progress-label');
+
+    // ── State ───────────────────────────────────────────────
+    let schedule = null; // { createdAt, startTime, doses: [ { cycle, drop, time, taken } ] }
+
+    // ── Helpers ─────────────────────────────────────────────
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function minutesToTime(totalMinutes) {
+      // Wrap around midnight
+      const m = ((totalMinutes % 1440) + 1440) % 1440;
+      return `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+    }
+
+    function formatDateIT(date) {
+      const days = ['Domenica', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato'];
+      const months = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+      return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+    }
+
+    // ── LocalStorage ────────────────────────────────────────
+    function saveSchedule() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule));
+    }
+
+    function loadSchedule() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        return JSON.parse(raw);
+      } catch { return null; }
+    }
+
+    function clearSchedule() {
+      localStorage.removeItem(STORAGE_KEY);
+      schedule = null;
+    }
+
+    // ── Auto-reset check (24 h) ────────────────────────────
+    function isExpired(data) {
+      if (!data || !data.createdAt) return true;
+      const elapsed = Date.now() - new Date(data.createdAt).getTime();
+      return elapsed > 24 * 60 * 60 * 1000;
+    }
+
+    // ── Generate Schedule ───────────────────────────────────
+    function generateSchedule(startTimeStr) {
+      const [h, m] = startTimeStr.split(':').map(Number);
+      const baseMinutes = h * 60 + m;
+      const doses = [];
+
+      for (let cycle = 0; cycle < CYCLES; cycle++) {
+        const cycleBase = baseMinutes + cycle * CYCLE_GAP_HOURS * 60;
+        DROPS.forEach((drop, idx) => {
+          doses.push({
+            cycle,
+            dropIndex: idx,
+            time: minutesToTime(cycleBase + drop.offsetMinutes),
+            taken: false,
+          });
+        });
+      }
+
+      schedule = {
+        createdAt: new Date().toISOString(),
+        startTime: startTimeStr,
+        doses,
+      };
+      saveSchedule();
+    }
+
+    // ── Render ──────────────────────────────────────────────
+    function renderDashboard() {
+      if (!schedule) return;
+
+      // Date header
+      headerDate.textContent = formatDateIT(new Date(schedule.createdAt));
+
+      // Progress
+      const totalDoses = schedule.doses.length;
+      const takenCount = schedule.doses.filter(d => d.taken).length;
+      progressLabel.textContent = `${takenCount} / ${totalDoses}`;
+      progressBar.style.width = `${(takenCount / totalDoses) * 100}%`;
+
+      // Build cycles
+      scheduleContainer.innerHTML = '';
+
+      for (let cycle = 0; cycle < CYCLES; cycle++) {
+        const cycleDoses = schedule.doses.filter(d => d.cycle === cycle);
+        const cycleTaken = cycleDoses.filter(d => d.taken).length;
+        const cycleComplete = cycleTaken === cycleDoses.length;
+
+        const cycleEl = document.createElement('div');
+        cycleEl.className = 'fade-in-up';
+        cycleEl.style.animationDelay = `${cycle * 0.1}s`;
+        cycleEl.style.opacity = '0';
+
+        // Cycle header
+        const cycleHeader = document.createElement('div');
+        cycleHeader.className = 'flex items-center justify-between mb-3';
+        cycleHeader.innerHTML = `
+          <h2 class="text-xl font-extrabold text-white flex items-center gap-2">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700 text-sky-400 text-base font-black">${cycle + 1}</span>
+            Turno ${cycle + 1}
+          </h2>
+          <span class="text-sm font-bold ${cycleComplete ? 'text-emerald-400' : 'text-slate-500'}">
+            ${cycleComplete ? '✓ Completato' : `${cycleTaken}/${cycleDoses.length}`}
+          </span>
+        `;
+        cycleEl.appendChild(cycleHeader);
+
+        // Dose cards container
+        const cardsContainer = document.createElement('div');
+        cardsContainer.className = 'space-y-3 stagger';
+
+        cycleDoses.forEach((dose) => {
+          const drop = DROPS[dose.dropIndex];
+          const colors = COLOR_MAP[drop.color];
+          const globalIndex = schedule.doses.indexOf(dose);
+
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.id = `dose-${globalIndex}`;
+          card.setAttribute('aria-label', `${drop.name} alle ${dose.time}${dose.taken ? ', preso' : ''}`);
+
+          if (dose.taken) {
+            card.className = `dose-card w-full flex items-center gap-4 p-5 sm:p-6 rounded-2xl border-2 bg-emerald-600/20 border-emerald-500/40 text-left cursor-pointer`;
+          } else {
+            card.className = `dose-card w-full flex items-center gap-4 p-5 sm:p-6 rounded-2xl border-2 ${colors.bg} ${colors.border} text-left cursor-pointer hover:brightness-125`;
+          }
+
+          // Dot / Check
+          let indicator;
+          if (dose.taken) {
+            indicator = `<div class="flex-shrink-0 w-12 h-12 rounded-xl bg-emerald-500 flex items-center justify-center check-pop">
+              <svg class="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            </div>`;
+          } else {
+            indicator = `<div class="flex-shrink-0 w-12 h-12 rounded-xl bg-slate-700/80 flex items-center justify-center">
+              <div class="w-4 h-4 rounded-full ${colors.dot}"></div>
+            </div>`;
+          }
+
+          card.innerHTML = `
+            ${indicator}
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-bold px-2 py-0.5 rounded-md ${dose.taken ? 'bg-emerald-500/20 text-emerald-300' : colors.badge}">${drop.shortName}</span>
+                <span class="text-lg font-bold ${dose.taken ? 'text-emerald-200' : 'text-slate-200'}">${drop.name}</span>
+              </div>
+              <span class="text-3xl font-extrabold ${dose.taken ? 'text-emerald-400' : colors.text}">${dose.time}</span>
+            </div>
+            ${dose.taken
+              ? '<span class="text-sm font-bold text-emerald-400 flex-shrink-0">PRESO ✓</span>'
+              : '<span class="text-sm font-bold text-slate-500 flex-shrink-0">Tocca per confermare</span>'
+            }
+          `;
+
+          card.addEventListener('click', () => toggleDose(globalIndex));
+          cardsContainer.appendChild(card);
+        });
+
+        cycleEl.appendChild(cardsContainer);
+        scheduleContainer.appendChild(cycleEl);
+      }
+    }
+
+    // ── Toggle dose ─────────────────────────────────────────
+    function toggleDose(index) {
+      if (!schedule) return;
+      schedule.doses[index].taken = !schedule.doses[index].taken;
+      saveSchedule();
+      renderDashboard();
+    }
+
+    // ── Screen management ───────────────────────────────────
+    function showSetup() {
+      setupScreen.classList.remove('hidden');
+      dashboardScreen.classList.add('hidden');
+    }
+
+    function showDashboard() {
+      setupScreen.classList.add('hidden');
+      dashboardScreen.classList.remove('hidden');
+      renderDashboard();
+    }
+
+    // ── Event listeners ─────────────────────────────────────
+    btnUseNow.addEventListener('click', () => {
+      const now = new Date();
+      startTimeInput.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    });
+
+    btnGenerate.addEventListener('click', () => {
+      const val = startTimeInput.value;
+      if (!val) {
+        startTimeInput.focus();
+        return;
+      }
+      generateSchedule(val);
+      showDashboard();
+    });
+
+    btnReset.addEventListener('click', () => {
+      confirmModal.classList.remove('hidden');
+    });
+
+    btnCancelReset.addEventListener('click', () => {
+      confirmModal.classList.add('hidden');
+    });
+
+    btnConfirmReset.addEventListener('click', () => {
+      confirmModal.classList.add('hidden');
+      clearSchedule();
+      showSetup();
+    });
+
+    // Close modal on backdrop click
+    confirmModal.addEventListener('click', (e) => {
+      if (e.target === confirmModal) confirmModal.classList.add('hidden');
+    });
+
+    // ── Init ────────────────────────────────────────────────
+    (function init() {
+      const saved = loadSchedule();
+      if (saved && !isExpired(saved)) {
+        schedule = saved;
+        showDashboard();
+      } else {
+        if (saved) clearSchedule(); // auto-reset if expired
+        showSetup();
+      }
+    })();
+  </script>
+</body>
+
+</html>
