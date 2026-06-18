@@ -7,6 +7,15 @@
   <title>Tracker Colliri Giornaliero</title>
   <meta name="description"
     content="Applicazione per il tracciamento giornaliero dei colliri. Interfaccia semplice e accessibile." />
+
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Colliri" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -108,6 +117,30 @@
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
     }
+
+    /* Notification banner pulse animation */
+    @keyframes bellRing {
+      0%, 100% { transform: rotate(0deg); }
+      15% { transform: rotate(14deg); }
+      30% { transform: rotate(-14deg); }
+      45% { transform: rotate(10deg); }
+      60% { transform: rotate(-8deg); }
+      75% { transform: rotate(4deg); }
+    }
+
+    .bell-ring {
+      animation: bellRing 1.5s ease-in-out infinite;
+      transform-origin: top center;
+    }
+
+    @keyframes softPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+      50% { box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); }
+    }
+
+    .pulse-glow {
+      animation: softPulse 2.5s ease-in-out infinite;
+    }
   </style>
 </head>
 
@@ -189,6 +222,88 @@
         <div id="progress-bar"
           class="h-full bg-gradient-to-r from-sky-500 to-emerald-400 rounded-full transition-all duration-500 ease-out"
           style="width: 0%"></div>
+      </div>
+    </div>
+
+    <!-- ===================== NOTIFICATION BANNER ===================== -->
+    <div id="notification-banner" class="hidden max-w-lg mx-auto px-4 mt-5">
+      <div class="bg-gradient-to-br from-amber-600/20 via-amber-500/10 to-orange-600/15 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 shadow-xl">
+        <!-- Stato: default — richiedi permesso -->
+        <div id="notif-ask" class="hidden">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="flex-shrink-0 w-16 h-16 rounded-2xl bg-amber-500/25 flex items-center justify-center">
+              <svg class="w-10 h-10 text-amber-400 bell-ring" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-2xl font-extrabold text-amber-200">Attiva i promemoria</h3>
+              <p class="text-lg text-amber-300/80 mt-1">Ricevi un avviso prima di ogni collirio</p>
+            </div>
+          </div>
+          <p class="text-lg text-slate-300 leading-relaxed mb-6">
+            Ti avviseremo <strong class="text-white">5 minuti prima</strong> di ogni collirio e ti ricorderemo se dimentichi di prenderlo.
+          </p>
+          <button id="btn-enable-notifications"
+            class="pulse-glow w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 active:from-amber-600 active:to-orange-600 text-white font-black text-2xl rounded-2xl p-6 shadow-lg shadow-amber-500/30 transition-all flex items-center justify-center gap-3">
+            <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 0 1-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
+            </svg>
+            ATTIVA PROMEMORIA
+          </button>
+        </div>
+
+        <!-- Stato: granted — tutto OK -->
+        <div id="notif-granted" class="hidden">
+          <div class="flex items-center gap-4">
+            <div class="flex-shrink-0 w-14 h-14 rounded-2xl bg-emerald-500/25 flex items-center justify-center">
+              <svg class="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-extrabold text-emerald-300">Promemoria attivi ✓</h3>
+              <p class="text-base text-slate-400 mt-0.5">Riceverai le notifiche per ogni collirio</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stato: denied — istruzioni -->
+        <div id="notif-denied" class="hidden">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="flex-shrink-0 w-14 h-14 rounded-2xl bg-red-500/25 flex items-center justify-center">
+              <svg class="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.143 17.082a24.248 24.248 0 0 0 5.714 0m-5.714 0a3 3 0 1 1 5.714 0M3.124 16.5a1.5 1.5 0 0 1-.054-2.086A9.017 9.017 0 0 0 6 9.75V9a6 6 0 0 1 12 0v.75a9.017 9.017 0 0 0 2.93 4.664 1.5 1.5 0 0 1-.054 2.086M3.124 16.5h17.752" />
+                <line x1="4" y1="4" x2="20" y2="20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-xl font-extrabold text-red-300">Promemoria disattivati</h3>
+            </div>
+          </div>
+          <div class="bg-slate-800/60 rounded-2xl p-5 border border-slate-600/50">
+            <p class="text-lg text-slate-300 leading-relaxed">
+              Per riattivare i promemoria, vai nelle <strong class="text-white">Impostazioni del telefono</strong> → 
+              <strong class="text-white">App</strong> → <strong class="text-white">Colliri</strong> → 
+              <strong class="text-white">Notifiche</strong> → <strong class="text-white">Attiva</strong>.
+            </p>
+          </div>
+        </div>
+
+        <!-- Stato: non supportato -->
+        <div id="notif-unsupported" class="hidden">
+          <div class="flex items-center gap-4">
+            <div class="flex-shrink-0 w-14 h-14 rounded-2xl bg-slate-600/40 flex items-center justify-center">
+              <svg class="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-slate-400">Promemoria non disponibili</h3>
+              <p class="text-base text-slate-500 mt-0.5">Il tuo browser non supporta le notifiche. Prova ad installare l'app dalla Home Screen.</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -606,6 +721,219 @@
     recalcModal.addEventListener('click', (e) => {
       if (e.target === recalcModal) handleRecalcNo(); // treat backdrop click as "No"
     });
+
+    // ══════════════════════════════════════════════════════════
+    // ═══ PWA: SERVICE WORKER REGISTRATION ═══════════════════
+    // ══════════════════════════════════════════════════════════
+
+    let swRegistration = null;
+
+    async function registerServiceWorker() {
+      if ('serviceWorker' in navigator) {
+        try {
+          swRegistration = await navigator.serviceWorker.register('./sw.js');
+          console.log('[SW] Registrato con successo:', swRegistration.scope);
+        } catch (err) {
+          console.warn('[SW] Registrazione fallita:', err);
+        }
+      }
+    }
+
+    registerServiceWorker();
+
+    // ══════════════════════════════════════════════════════════
+    // ═══ NOTIFICATION BANNER & PERMISSION MANAGEMENT ════════
+    // ══════════════════════════════════════════════════════════
+
+    const notifBanner = document.getElementById('notification-banner');
+    const notifAsk = document.getElementById('notif-ask');
+    const notifGranted = document.getElementById('notif-granted');
+    const notifDenied = document.getElementById('notif-denied');
+    const notifUnsupported = document.getElementById('notif-unsupported');
+    const btnEnableNotifications = document.getElementById('btn-enable-notifications');
+
+    function updateNotificationBanner() {
+      // Nascondi tutti gli stati
+      notifAsk.classList.add('hidden');
+      notifGranted.classList.add('hidden');
+      notifDenied.classList.add('hidden');
+      notifUnsupported.classList.add('hidden');
+
+      if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        // Notifiche non supportate
+        notifBanner.classList.remove('hidden');
+        notifUnsupported.classList.remove('hidden');
+        return;
+      }
+
+      const permission = Notification.permission;
+
+      if (permission === 'granted') {
+        notifBanner.classList.remove('hidden');
+        notifGranted.classList.remove('hidden');
+        // Nascondi il banner "granted" dopo 5 secondi per non ingombrare
+        setTimeout(() => {
+          notifBanner.classList.add('hidden');
+        }, 5000);
+      } else if (permission === 'denied') {
+        notifBanner.classList.remove('hidden');
+        notifDenied.classList.remove('hidden');
+      } else {
+        // 'default' — mostra il pulsante per richiedere
+        notifBanner.classList.remove('hidden');
+        notifAsk.classList.remove('hidden');
+      }
+    }
+
+    btnEnableNotifications.addEventListener('click', async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        console.log('[Notifiche] Permesso:', permission);
+        updateNotificationBanner();
+        if (permission === 'granted') {
+          // Invia notifica di test
+          sendNotification(
+            '✅ Promemoria attivati!',
+            'Riceverai le notifiche per ogni collirio.',
+            'test-notification'
+          );
+        }
+      } catch (err) {
+        console.warn('[Notifiche] Errore richiesta permesso:', err);
+      }
+    });
+
+    // ══════════════════════════════════════════════════════════
+    // ═══ NOTIFICATION SENDING LOGIC ═════════════════════════
+    // ══════════════════════════════════════════════════════════
+
+    function sendNotification(title, body, tag) {
+      if (Notification.permission !== 'granted') return;
+
+      // Preferisci il Service Worker per notifiche persistenti (anche a schermo bloccato)
+      if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          payload: { title, body, tag, data: { url: './index.html' } },
+        });
+      } else if (swRegistration) {
+        // SW registrato ma non ancora controller (primo caricamento)
+        swRegistration.showNotification(title, {
+          body,
+          tag,
+          icon: './icon-192.png',
+          badge: './icon-192.png',
+          vibrate: [200, 100, 200, 100, 200],
+          requireInteraction: true,
+        });
+      } else {
+        // Fallback: Notification API diretta (solo in primo piano)
+        new Notification(title, { body, tag, icon: './icon-192.png' });
+      }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ═══ NOTIFICATION SCHEDULE CHECKER (ogni 60 secondi) ════
+    // ══════════════════════════════════════════════════════════
+
+    const NOTIFIED_KEYS_STORAGE = 'healeyetracker_notified';
+
+    function getNotifiedKeys() {
+      try {
+        const raw = localStorage.getItem(NOTIFIED_KEYS_STORAGE);
+        return raw ? JSON.parse(raw) : [];
+      } catch { return []; }
+    }
+
+    function addNotifiedKey(key) {
+      const keys = getNotifiedKeys();
+      if (!keys.includes(key)) {
+        keys.push(key);
+        localStorage.setItem(NOTIFIED_KEYS_STORAGE, JSON.stringify(keys));
+      }
+    }
+
+    function clearNotifiedKeys() {
+      localStorage.removeItem(NOTIFIED_KEYS_STORAGE);
+    }
+
+    function checkNotificationSchedule() {
+      // Non fare nulla se le notifiche non sono attive
+      if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+      // Rileggi schedule dal localStorage per essere aggiornati
+      const currentSchedule = loadSchedule();
+      if (!currentSchedule || !currentSchedule.doses) return;
+
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+      const notifiedKeys = getNotifiedKeys();
+
+      currentSchedule.doses.forEach((dose, index) => {
+        const drop = DROPS[dose.dropIndex];
+        const doseMinutes = timeToMinutes(dose.time);
+
+        // Calcola delta in minuti (positivo = siamo DOPO l'orario programmato)
+        let delta = currentMinutes - doseMinutes;
+        // Gestione wrap mezzanotte
+        if (delta > 720) delta -= 1440;
+        if (delta < -720) delta += 1440;
+
+        // ── Pre-avviso: 5 minuti PRIMA (-5 ≤ delta ≤ -4) ──
+        const preKey = `pre_${index}`;
+        if (delta >= -5 && delta <= -4 && !dose.taken && !notifiedKeys.includes(preKey)) {
+          sendNotification(
+            `💧 ${drop.name} tra 5 minuti`,
+            `Tra 5 minuti ricordati di prendere il ${drop.name} (ore ${dose.time}).`,
+            `pre-dose-${index}`
+          );
+          addNotifiedKey(preKey);
+        }
+
+        // ── Sollecito: 5 minuti DOPO (+5 ≤ delta ≤ +6) E non preso ──
+        const postKey = `post_${index}`;
+        if (delta >= 5 && delta <= 6 && !dose.taken && !notifiedKeys.includes(postKey)) {
+          sendNotification(
+            `⚠️ ${drop.name} non preso!`,
+            `Attenzione: non hai ancora preso il ${drop.name} previsto per le ${dose.time}! Apri l'app per registrarlo.`,
+            `post-dose-${index}`
+          );
+          addNotifiedKey(postKey);
+        }
+      });
+    }
+
+    // Avvia il ciclo di controllo — ogni 60 secondi
+    let notificationInterval = null;
+
+    function startNotificationChecker() {
+      // Controllo immediato all'avvio
+      checkNotificationSchedule();
+      // Poi ogni 60 secondi
+      if (notificationInterval) clearInterval(notificationInterval);
+      notificationInterval = setInterval(checkNotificationSchedule, 60 * 1000);
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ═══ PATCH: clearSchedule pulisce anche notifiedKeys ════
+    // ══════════════════════════════════════════════════════════
+
+    const _originalClearSchedule = clearSchedule;
+    clearSchedule = function () {
+      _originalClearSchedule();
+      clearNotifiedKeys();
+    };
+
+    // ══════════════════════════════════════════════════════════
+    // ═══ PATCH: showDashboard aggiorna anche banner notifiche
+    // ══════════════════════════════════════════════════════════
+
+    const _originalShowDashboard = showDashboard;
+    showDashboard = function () {
+      _originalShowDashboard();
+      updateNotificationBanner();
+      startNotificationChecker();
+    };
 
     // ── Init ────────────────────────────────────────────────
     (function init() {
