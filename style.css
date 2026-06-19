@@ -1,0 +1,109 @@
+/* Smooth transitions for dose cards */
+.dose-card {
+  transition: background-color 0.3s ease, transform 0.15s ease, box-shadow 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.dose-card:active {
+  transform: scale(0.97);
+}
+
+/* Pulse animation for the checkmark */
+@keyframes popIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+
+  60% {
+    transform: scale(1.3);
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.check-pop {
+  animation: popIn 0.35s ease-out forwards;
+}
+
+/* Fade-in for sections */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.45s ease-out forwards;
+}
+
+/* Staggered children */
+.stagger>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger>*:nth-child(2) {
+  animation-delay: 0.12s;
+}
+
+.stagger>*:nth-child(3) {
+  animation-delay: 0.19s;
+}
+
+.stagger>*:nth-child(4) {
+  animation-delay: 0.26s;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 3px;
+}
+
+/* Confirmation modal backdrop */
+.modal-backdrop {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* Notification banner pulse animation */
+@keyframes bellRing {
+  0%, 100% { transform: rotate(0deg); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-14deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+}
+
+.bell-ring {
+  animation: bellRing 1.5s ease-in-out infinite;
+  transform-origin: top center;
+}
+
+@keyframes softPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(245, 158, 11, 0); }
+}
+
+.pulse-glow {
+  animation: softPulse 2.5s ease-in-out infinite;
+}
