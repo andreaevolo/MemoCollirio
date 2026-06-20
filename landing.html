@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="MemoCollirio è una PWA gratuita per ricordare colliri, turni e notifiche quotidiane, senza registrazione."
+    />
+    <title>MemoCollirio — Promemoria colliri gratuito</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0f172a;
+        --surface: #1e293b;
+        --surface-soft: #172033;
+        --surface-strong: #263449;
+        --primary: #3b82f6;
+        --primary-dark: #2563eb;
+        --text: #ffffff;
+        --muted: #cbd5e1;
+        --muted-2: #94a3b8;
+        --border: rgba(148, 163, 184, 0.18);
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.38);
+        --radius: 28px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        min-width: 320px;
+        background:
+          radial-gradient(
+            circle at 15% 0%,
+            rgba(59, 130, 246, 0.22),
+            transparent 32rem
+          ),
+          radial-gradient(
+            circle at 85% 10%,
+            rgba(14, 165, 233, 0.14),
+            transparent 28rem
+          ),
+          var(--bg);
+        color: var(--text);
+        font-family:
+          "Plus Jakarta Sans",
+          Inter,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .page {
+        width: min(1120px, 100%);
+        margin: 0 auto;
+        padding: 28px 18px 56px;
+      }
+
+      .hero {
+        min-height: 100svh;
+        display: grid;
+        align-items: center;
+        gap: 38px;
+        padding: 24px 0 72px;
+      }
+
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 30px;
+        color: #dbeafe;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+      }
+
+      .brand-icon {
+        width: 42px;
+        height: 42px;
+        display: inline-grid;
+        place-items: center;
+        border: 1px solid rgba(96, 165, 250, 0.35);
+        border-radius: 14px;
+        background: rgba(59, 130, 246, 0.14);
+        box-shadow: 0 14px 34px rgba(59, 130, 246, 0.18);
+      }
+
+      .eyedrop-icon {
+        width: 24px;
+        height: 24px;
+      }
+
+      .eyedrop-icon path,
+      .eyedrop-icon circle {
+        stroke: currentColor;
+      }
+
+      .eyedrop-icon .fill {
+        fill: currentColor;
+        stroke: none;
+      }
+
+      .hero-copy {
+        max-width: 650px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0 0 18px;
+        padding: 8px 12px;
+        border: 1px solid rgba(59, 130, 246, 0.28);
+        border-radius: 999px;
+        background: rgba(30, 41, 59, 0.72);
+        color: #bfdbfe;
+        font-size: 0.9rem;
+        font-weight: 800;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        max-width: 720px;
+        color: var(--text);
+        font-size: clamp(2.65rem, 10vw, 5.7rem);
+        line-height: 0.98;
+        letter-spacing: -0.075em;
+        font-weight: 900;
+      }
+
+      .subheadline {
+        margin-top: 24px;
+        color: var(--muted);
+        font-size: clamp(1.05rem, 3.5vw, 1.35rem);
+        line-height: 1.65;
+        font-weight: 500;
+      }
+
+      .cta-row {
+        margin-top: 32px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .button {
+        min-height: 58px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border-radius: 18px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 1.05rem;
+        font-weight: 900;
+        box-shadow: 0 18px 34px rgba(59, 130, 246, 0.32);
+        transition:
+          transform 160ms ease,
+          background 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .button:hover {
+        background: var(--primary-dark);
+        transform: translateY(-1px);
+        box-shadow: 0 22px 44px rgba(59, 130, 246, 0.36);
+      }
+
+      .button:active {
+        transform: translateY(1px);
+      }
+
+      .trust-note {
+        color: #dbeafe;
+        font-size: 0.95rem;
+        font-weight: 800;
+        line-height: 1.9;
+      }
+
+      .hero-asset {
+        display: flex;
+        justify-content: center;
+      }
+
+      .phone {
+        position: relative;
+        width: min(100%, 360px);
+        padding: 14px;
+        border: 1px solid rgba(203, 213, 225, 0.16);
+        border-radius: 44px;
+        background: linear-gradient(
+          145deg,
+          rgba(51, 65, 85, 0.95),
+          rgba(15, 23, 42, 0.98)
+        );
+        box-shadow: var(--shadow);
+      }
+
+      .phone::before {
+        content: "";
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        width: 92px;
+        height: 22px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: #0f172a;
+        z-index: 2;
+      }
+
+      .phone-screen {
+        overflow: hidden;
+        min-height: 650px;
+        border-radius: 34px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background:
+          radial-gradient(
+            circle at 50% 0%,
+            rgba(59, 130, 246, 0.2),
+            transparent 20rem
+          ),
+          #0f172a;
+        padding: 48px 18px 18px;
+      }
+
+      .app-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .app-title {
+        color: #fff;
+        font-size: 1.45rem;
+        font-weight: 900;
+        letter-spacing: -0.04em;
+      }
+
+      .app-date {
+        color: var(--muted-2);
+        font-size: 0.8rem;
+        font-weight: 800;
+      }
+
+      .settings-dot {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 14px;
+        background: #1e293b;
+        color: #93c5fd;
+        font-size: 1.15rem;
+      }
+
+      .progress-card {
+        margin-bottom: 22px;
+        padding: 16px;
+        border: 1px solid rgba(96, 165, 250, 0.18);
+        border-radius: 22px;
+        background: rgba(30, 41, 59, 0.82);
+      }
+
+      .progress-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 10px;
+        color: #dbeafe;
+        font-size: 0.82rem;
+        font-weight: 900;
+      }
+
+      .progress-track {
+        height: 11px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #334155;
+      }
+
+      .progress-fill {
+        width: 42%;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #38bdf8, #3b82f6);
+      }
+
+      .turn {
+        margin-bottom: 18px;
+      }
+
+      .turn-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+        color: #fff;
+        font-weight: 900;
+      }
+
+      .turn-count {
+        color: var(--muted-2);
+        font-size: 0.82rem;
+      }
+
+      .dose {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        min-height: 82px;
+        margin-bottom: 10px;
+        padding: 13px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 20px;
+        background: rgba(30, 41, 59, 0.9);
+      }
+
+      .dose.done {
+        border-color: rgba(16, 185, 129, 0.28);
+        background: rgba(16, 185, 129, 0.12);
+      }
+
+      .dose-icon {
+        width: 44px;
+        height: 44px;
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        border-radius: 15px;
+        background: #334155;
+      }
+
+      .dot {
+        width: 14px;
+        height: 14px;
+        border-radius: 999px;
+      }
+
+      .sky {
+        background: #0ea5e9;
+      }
+      .violet {
+        background: #8b5cf6;
+      }
+      .emerald {
+        background: #10b981;
+      }
+      .rose {
+        background: #f43f5e;
+      }
+
+      .dose-name {
+        color: #f8fafc;
+        font-size: 0.94rem;
+        font-weight: 900;
+      }
+
+      .dose-label {
+        display: inline-block;
+        margin-bottom: 2px;
+        padding: 2px 7px;
+        border-radius: 8px;
+        background: rgba(59, 130, 246, 0.12);
+        color: #93c5fd;
+        font-size: 0.68rem;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .dose-time {
+        margin-left: auto;
+        color: #38bdf8;
+        font-size: 1.4rem;
+        font-weight: 900;
+      }
+
+      section {
+        padding: 62px 0;
+      }
+
+      .section-heading {
+        max-width: 720px;
+        margin-bottom: 28px;
+      }
+
+      .section-heading.center {
+        margin-inline: auto;
+        text-align: center;
+      }
+
+      h2 {
+        color: #fff;
+        font-size: clamp(2rem, 7vw, 3.25rem);
+        line-height: 1.08;
+        letter-spacing: -0.06em;
+        font-weight: 900;
+      }
+
+      .section-subtitle {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 1.05rem;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+      }
+
+      .card {
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: rgba(30, 41, 59, 0.78);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.18);
+      }
+
+      .benefit-icon,
+      .step-number {
+        width: 52px;
+        height: 52px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 18px;
+        border-radius: 18px;
+        background: rgba(59, 130, 246, 0.14);
+        color: #bfdbfe;
+        font-size: 1.5rem;
+        font-weight: 900;
+      }
+
+      .card h3 {
+        color: #fff;
+        font-size: 1.24rem;
+        line-height: 1.25;
+        letter-spacing: -0.035em;
+        font-weight: 900;
+      }
+
+      .card p {
+        margin-top: 10px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .steps {
+        counter-reset: steps;
+      }
+
+      .step-number {
+        color: #fff;
+        background: linear-gradient(135deg, var(--primary), #0ea5e9);
+        box-shadow: 0 16px 28px rgba(59, 130, 246, 0.22);
+      }
+
+      .faq {
+        display: grid;
+        gap: 14px;
+      }
+
+      details {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: rgba(30, 41, 59, 0.78);
+      }
+
+      summary {
+        min-height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 18px 20px;
+        color: #fff;
+        cursor: pointer;
+        font-weight: 900;
+        list-style: none;
+      }
+
+      summary::-webkit-details-marker {
+        display: none;
+      }
+
+      summary::after {
+        content: "+";
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        flex: 0 0 auto;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.14);
+        color: #bfdbfe;
+        font-size: 1.25rem;
+        font-weight: 900;
+        transition: transform 160ms ease;
+      }
+
+      details[open] summary::after {
+        transform: rotate(45deg);
+      }
+
+      details p {
+        padding: 0 20px 20px;
+        color: var(--muted);
+      }
+
+      .final-cta {
+        margin-top: 36px;
+        padding: 34px 22px;
+        border: 1px solid rgba(96, 165, 250, 0.24);
+        border-radius: 34px;
+        background:
+          linear-gradient(
+            145deg,
+            rgba(59, 130, 246, 0.18),
+            rgba(30, 41, 59, 0.84)
+          ),
+          var(--surface);
+        text-align: center;
+        box-shadow: var(--shadow);
+      }
+
+      .final-cta h2 {
+        max-width: 640px;
+        margin: 0 auto;
+      }
+
+      .final-cta .button {
+        width: 100%;
+        margin-top: 26px;
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+      }
+
+      @media (min-width: 720px) {
+        .page {
+          padding-inline: 28px;
+        }
+
+        .hero {
+          grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.8fr);
+          gap: 54px;
+        }
+
+        .cta-row {
+          display: flex;
+          align-items: center;
+          gap: 18px;
+        }
+
+        .button {
+          min-width: 230px;
+          padding-inline: 26px;
+        }
+
+        .grid.three {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .final-cta {
+          padding: 54px;
+        }
+
+        .final-cta .button {
+          width: auto;
+        }
+      }
+
+      @media (max-width: 719px) {
+        .button {
+          width: 100%;
+        }
+
+        .phone {
+          max-width: 340px;
+        }
+
+        .phone-screen {
+          min-height: 590px;
+        }
+
+        .dose {
+          min-height: 76px;
+        }
+
+        .dose-time {
+          font-size: 1.18rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <div class="brand" aria-label="MemoCollirio">
+            <span class="brand-icon" aria-hidden="true">
+              <svg
+                class="eyedrop-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke-width="2.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14.5 4.5 19.5 9.5" />
+                <path
+                  d="M4.5 14.5 14.5 4.5a3.54 3.54 0 0 1 5 5l-10 10a3.54 3.54 0 0 1-5-5Z"
+                />
+                <circle class="fill" cx="6.7" cy="17.3" r="1.45" />
+              </svg>
+            </span>
+            <span>MemoCollirio</span>
+          </div>
+
+          <h1 id="hero-title">Non dimenticare mai più le gocce</h1>
+          <p class="subheadline">
+            Imposta i tuoi colliri una volta, MemoCollirio genera il programma
+            giornaliero e ti avvisa quando è il momento.
+          </p>
+
+          <div class="cta-row">
+            <a
+              class="button"
+              href="#apri-app"
+              aria-label="Apri l'app MemoCollirio gratis"
+            >
+              Apri l'App Gratis
+              <span aria-hidden="true">→</span>
+            </a>
+            <p class="trust-note">
+              ✓ Gratuita&nbsp;&nbsp; ✓ Funziona offline&nbsp;&nbsp; ✓ Nessuna
+              registrazione
+            </p>
+          </div>
+        </div>
+
+        <div class="hero-asset" aria-label="Anteprima dashboard MemoCollirio">
+          <div
+            class="phone"
+            role="img"
+            aria-label="Mockup telefono con programma giornaliero di colliri"
+          >
+            <div class="phone-screen">
+              <div class="app-top">
+                <div>
+                  <div class="app-title">Oggi</div>
+                  <div class="app-date">Programma colliri</div>
+                </div>
+                <div class="settings-dot" aria-hidden="true">⚙</div>
+              </div>
+
+              <div class="progress-card">
+                <div class="progress-meta">
+                  <span>Progresso giornaliero</span>
+                  <span>3 / 7</span>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill"></div>
+                </div>
+              </div>
+
+              <div class="turn">
+                <div class="turn-header">
+                  <span>Turno 1</span>
+                  <span class="turn-count">Completato</span>
+                </div>
+                <div class="dose done">
+                  <div class="dose-icon"><span class="dot emerald"></span></div>
+                  <div>
+                    <span class="dose-label">LAC</span>
+                    <div class="dose-name">Lacrima</div>
+                  </div>
+                  <div class="dose-time">08:00</div>
+                </div>
+                <div class="dose done">
+                  <div class="dose-icon"><span class="dot violet"></span></div>
+                  <div>
+                    <span class="dose-label">ANT</span>
+                    <div class="dose-name">Antibiotico</div>
+                  </div>
+                  <div class="dose-time">08:05</div>
+                </div>
+              </div>
+
+              <div class="turn">
+                <div class="turn-header">
+                  <span>Turno 2</span>
+                  <span class="turn-count">1/3</span>
+                </div>
+                <div class="dose done">
+                  <div class="dose-icon"><span class="dot sky"></span></div>
+                  <div>
+                    <span class="dose-label">LAC</span>
+                    <div class="dose-name">Lacrima</div>
+                  </div>
+                  <div class="dose-time">12:00</div>
+                </div>
+                <div class="dose">
+                  <div class="dose-icon"><span class="dot rose"></span></div>
+                  <div>
+                    <span class="dose-label">COR</span>
+                    <div class="dose-name">Cortisone</div>
+                  </div>
+                  <div class="dose-time">12:30</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="benefits-title">
+        <div class="section-heading">
+          <h2 id="benefits-title">
+            Meno pensieri, più sicurezza nella terapia
+          </h2>
+          <p class="section-subtitle">
+            MemoCollirio traduce la prescrizione in una guida semplice da
+            seguire durante la giornata.
+          </p>
+        </div>
+
+        <div class="grid three">
+          <article class="card">
+            <div class="benefit-icon" aria-hidden="true">⏰</div>
+            <h3>Mai più dosi dimenticate</h3>
+            <p>Notifiche push 5 minuti prima di ogni goccia.</p>
+          </article>
+
+          <article class="card">
+            <div class="benefit-icon" aria-hidden="true">🔄</div>
+            <h3>Adattabile al tuo ritmo</h3>
+            <p>
+              Se prendi una goccia in ritardo, il programma si aggiorna da solo.
+            </p>
+          </article>
+
+          <article class="card">
+            <div class="benefit-icon" aria-hidden="true">📱</div>
+            <h3>Funziona anche offline</h3>
+            <p>Nessuna connessione richiesta, sempre disponibile.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="steps-title">
+        <div class="section-heading">
+          <h2 id="steps-title">Come funziona</h2>
+          <p class="section-subtitle">
+            Tre passaggi chiari, pensati per chi vuole aprire l'app e sapere
+            subito cosa fare.
+          </p>
+        </div>
+
+        <div class="grid three steps">
+          <article class="card">
+            <div class="step-number" aria-hidden="true">1</div>
+            <h3>Configura i tuoi colliri</h3>
+            <p>Inserisci i colliri prescritti e i loro orari una volta sola.</p>
+          </article>
+
+          <article class="card">
+            <div class="step-number" aria-hidden="true">2</div>
+            <h3>Imposta l'orario di oggi</h3>
+            <p>Ogni mattina indica quando hai fatto la prima goccia.</p>
+          </article>
+
+          <article class="card">
+            <div class="step-number" aria-hidden="true">3</div>
+            <h3>Segui il programma</h3>
+            <p>L'app ti guida e ti avvisa per tutto il giorno.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="faq-title">
+        <div class="section-heading center">
+          <h2 id="faq-title">Domande frequenti</h2>
+          <p class="section-subtitle">
+            Le risposte alle domande più comuni prima di iniziare.
+          </p>
+        </div>
+
+        <div class="faq">
+          <details>
+            <summary>Devo creare un account?</summary>
+            <p>
+              No, nessuna registrazione. I tuoi dati restano sul tuo telefono.
+            </p>
+          </details>
+
+          <details>
+            <summary>Funziona su iPhone e Android?</summary>
+            <p>Sì, è una PWA installabile su qualsiasi dispositivo.</p>
+          </details>
+
+          <details>
+            <summary>Costa qualcosa?</summary>
+            <p>È completamente gratuita.</p>
+          </details>
+        </div>
+      </section>
+
+      <section class="final-cta" aria-labelledby="final-cta-title">
+        <h2 id="final-cta-title">Inizia oggi. Ci vogliono 2 minuti.</h2>
+        <a class="button" href="/" aria-label="Apri MemoCollirio">
+          Apri MemoCollirio
+          <span aria-hidden="true">→</span>
+        </a>
+      </section>
+    </main>
+
+    <div id="apri-app" class="sr-only" aria-hidden="true"></div>
+
+    <script>
+      document.querySelectorAll('a[href="#apri-app"]').forEach((button) => {
+        button.addEventListener("click", () => {
+          button.blur();
+        });
+      });
+    </script>
+  </body>
+</html>
