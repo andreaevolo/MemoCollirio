@@ -20,6 +20,45 @@
     <meta name="apple-mobile-web-app-title" content="Colliri" />
     <link rel="apple-touch-icon" href="icon-192.png" />
 
+    <script>
+      (() => {
+        const APP_SEEN_KEY = "healeyestracker_has_opened_app";
+        const SCHEDULE_KEY = "healeyetracker_data";
+        const SETTINGS_KEY = "healeyestracker_settings";
+        const params = new URLSearchParams(window.location.search);
+        const appRequested = params.has("start") || params.has("app");
+
+        try {
+          const hasAppState = Boolean(
+            localStorage.getItem(APP_SEEN_KEY) ||
+              localStorage.getItem(SCHEDULE_KEY) ||
+              localStorage.getItem(SETTINGS_KEY)
+          );
+
+          if (appRequested || hasAppState) {
+            localStorage.setItem(APP_SEEN_KEY, "true");
+
+            if (appRequested && window.history?.replaceState) {
+              const cleanUrl = new URL(window.location.href);
+              cleanUrl.searchParams.delete("start");
+              cleanUrl.searchParams.delete("app");
+              window.history.replaceState(
+                null,
+                "",
+                cleanUrl.pathname + cleanUrl.search + cleanUrl.hash
+              );
+            }
+
+            return;
+          }
+        } catch (error) {
+          if (appRequested) return;
+        }
+
+        window.location.replace(new URL("landing.html", window.location.href));
+      })();
+    </script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
