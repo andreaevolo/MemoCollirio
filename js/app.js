@@ -4,15 +4,19 @@ import {
   loadSchedule,
   saveSchedule,
   clearSchedule,
+  clearNotifiedKeys,
   isExpired,
+  loadSettings,
   saveSettings,
 } from './storage.js';
 import {
   elements,
+  showWelcome,
   showSetup,
   showDashboard,
   showSettings,
   hideSettings,
+  showToast,
   showSettingsWarning,
   updateSetupDropName,
   renderDashboard,
@@ -28,6 +32,7 @@ import {
 let schedule = null;
 let pendingRecalc = null;
 let previousScreen = 'setup';
+let cameFromWelcome = false;
 const TOLERANCE_MINUTES = 10;
 
 function escapeHtml(value) {
@@ -81,7 +86,7 @@ function handleToggleDose(index) {
   if (dose.taken) {
     dose.taken = false;
     saveSchedule(schedule);
-    renderDashboard(schedule, handleToggleDose);
+    renderCurrentDashboard();
     return;
   }
 
@@ -112,7 +117,7 @@ function handleToggleDose(index) {
 
   dose.taken = true;
   saveSchedule(schedule);
-  renderDashboard(schedule, handleToggleDose);
+  renderCurrentDashboard();
 }
 
 function handleRecalcYes() {
@@ -131,7 +136,7 @@ function handleRecalcYes() {
   pendingRecalc = null;
   elements.recalcModal.classList.add('hidden');
   saveSchedule(schedule);
-  renderDashboard(schedule, handleToggleDose);
+  renderCurrentDashboard();
 }
 
 function handleRecalcNo() {
@@ -142,12 +147,37 @@ function handleRecalcNo() {
   pendingRecalc = null;
   elements.recalcModal.classList.add('hidden');
   saveSchedule(schedule);
-  renderDashboard(schedule, handleToggleDose);
+  renderCurrentDashboard();
+}
+
+function isScheduleComplete(currentSchedule) {
+  if (!currentSchedule) return false;
+
+  if (Array.isArray(currentSchedule)) {
+    return currentSchedule.length > 0 && currentSchedule.every((turn) =>
+      Array.isArray(turn.doses) && turn.doses.length > 0 && turn.doses.every((dose) => dose.taken)
+    );
+  }
+
+  return Array.isArray(currentSchedule.doses)
+    && currentSchedule.doses.length > 0
+    && currentSchedule.doses.every((dose) => dose.taken);
+}
+
+function handleNewDay() {
+  clearSchedule();
+  clearNotifiedKeys();
+  schedule = null;
+  showSetup();
+}
+
+function renderCurrentDashboard() {
+  renderDashboard(schedule, handleToggleDose, isScheduleComplete(schedule), handleNewDay);
 }
 
 function updateAppView() {
   showDashboard();
-  renderDashboard(schedule, handleToggleDose);
+  renderCurrentDashboard();
   updateNotificationBanner();
   startNotificationChecker();
 }
@@ -155,15 +185,29 @@ function updateAppView() {
 function openSettings(fromScreen) {
   previousScreen = fromScreen;
   showSettingsWarning(false);
-  renderSettingsScreen(getEffectiveConfig(), handleSaveSettings);
+  const config = getEffectiveConfig();
+  renderSettingsScreen(cameFromWelcome ? { ...config, drops: [] } : config, handleSaveSettings);
   showSettings();
 }
 
 function closeSettings() {
   hideSettings();
+  if (cameFromWelcome) {
+    const settings = loadSettings();
+    if (settings) {
+      cameFromWelcome = false;
+      previousScreen = 'setup';
+      updateSetupDropName(settings);
+      showSetup();
+    } else {
+      showWelcome();
+    }
+    return;
+  }
+
   if (previousScreen === 'dashboard' && schedule) {
     showDashboard();
-    renderDashboard(schedule, handleToggleDose);
+    renderCurrentDashboard();
   } else {
     showSetup();
   }
@@ -184,6 +228,15 @@ function handleSaveSettings(newConfig) {
 
   saveSettings(newConfig);
   updateSetupDropName(newConfig);
+
+  if (cameFromWelcome) {
+    cameFromWelcome = false;
+    previousScreen = 'setup';
+    showSetup();
+    showToast('✓ Impostazioni salvate! Genera il programma di oggi.');
+    return;
+  }
+
   showSettingsWarning(Boolean(schedule));
 }
 
@@ -201,6 +254,15 @@ elements.btnGenerate.addEventListener('click', () => {
   }
   generateSchedule(value);
   updateAppView();
+});
+
+elements.btnGoToSettings.addEventListener('click', () => {
+  cameFromWelcome = true;
+  openSettings('welcome');
+
+  if (window.history && window.history.pushState) {
+    window.history.pushState({ screen: 'settings', from: 'welcome' }, '');
+  }
 });
 
 elements.btnSettingsSetup.addEventListener('click', () => openSettings('setup'));
@@ -250,28 +312,48 @@ elements.btnEnableNotifications.addEventListener('click', async () => {
   }
 });
 
-// Init
-(function init() {
-  registerServiceWorker();
-
-  // Load the effective settings before reading or generating any schedule.
-  const effectiveConfig = getEffectiveConfig();
-  updateSetupDropName(effectiveConfig);
-
-  const saved = loadSchedule();
-  if (saved && !isExpired(saved)) {
-    schedule = saved;
-    if (!schedule.config) {
-      schedule.config = {
-        drops: effectiveConfig.drops.map((drop) => ({ ...drop })),
-        cycles: effectiveConfig.cycles,
-        cycleGapHours: effectiveConfig.cycleGapHours,
-      };
-      saveSchedule(schedule);
-    }
-    updateAppView();
-  } else {
-    if (saved) clearSchedule();
-    showSetup();
+window.addEventListener('popstate', () => {
+  if (!elements.settingsScreen.classList.contains('hidden') && cameFromWelcome) {
+    hideSettings();
+    showWelcome();
   }
-})();
+});
+
+// Init
+async function init() {
+  await registerServiceWorker();
+  updateNotificationBanner();
+  startNotificationChecker();
+
+  const settings = loadSettings();
+  const data = loadSchedule();
+
+  if (!settings) {
+    showWelcome();
+    return;
+  }
+
+  updateSetupDropName(settings);
+
+  if (!data || isExpired(data)) {
+    if (data) clearSchedule();
+    schedule = null;
+    showSetup();
+    return;
+  }
+
+  schedule = data.schedule || data;
+  if (!schedule.config) {
+    schedule.config = {
+      drops: settings.drops.map((drop) => ({ ...drop })),
+      cycles: settings.cycles,
+      cycleGapHours: settings.cycleGapHours,
+    };
+    saveSchedule(schedule);
+  }
+
+  renderCurrentDashboard();
+  showDashboard();
+}
+
+init();
