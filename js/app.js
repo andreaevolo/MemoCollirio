@@ -1,24 +1,60 @@
-import { DROPS, CYCLES, CYCLE_GAP_HOURS } from './config.js';
+import { getEffectiveConfig } from './config.js';
 import { pad, minutesToTime, timeToMinutes, getCurrentTimeStr } from './utils.js';
-import { loadSchedule, saveSchedule, clearSchedule, isExpired } from './storage.js';
-import { elements, showSetup, showDashboard, renderDashboard } from './ui.js';
-import { registerServiceWorker, updateNotificationBanner, startNotificationChecker, sendNotification } from './notifications.js';
+import {
+  loadSchedule,
+  saveSchedule,
+  clearSchedule,
+  isExpired,
+  saveSettings,
+} from './storage.js';
+import {
+  elements,
+  showSetup,
+  showDashboard,
+  showSettings,
+  hideSettings,
+  showSettingsWarning,
+  updateSetupDropName,
+  renderDashboard,
+  renderSettingsScreen,
+} from './ui.js';
+import {
+  registerServiceWorker,
+  updateNotificationBanner,
+  startNotificationChecker,
+  sendNotification,
+} from './notifications.js';
 
 let schedule = null;
 let pendingRecalc = null;
+let previousScreen = 'setup';
 const TOLERANCE_MINUTES = 10;
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function getScheduleConfig() {
+  return schedule?.config || getEffectiveConfig();
+}
+
 function generateSchedule(startTimeStr) {
-  const [h, m] = startTimeStr.split(':').map(Number);
-  const baseMinutes = h * 60 + m;
+  const config = getEffectiveConfig();
+  const [hours, minutes] = startTimeStr.split(':').map(Number);
+  const baseMinutes = hours * 60 + minutes;
   const doses = [];
 
-  for (let cycle = 0; cycle < CYCLES; cycle++) {
-    const cycleBase = baseMinutes + cycle * CYCLE_GAP_HOURS * 60;
-    DROPS.forEach((drop, idx) => {
+  for (let cycle = 0; cycle < config.cycles; cycle++) {
+    const cycleBase = baseMinutes + cycle * config.cycleGapHours * 60;
+    config.drops.forEach((drop, dropIndex) => {
       doses.push({
         cycle,
-        dropIndex: idx,
+        dropIndex,
         time: minutesToTime(cycleBase + drop.offsetMinutes),
         taken: false,
       });
@@ -28,6 +64,11 @@ function generateSchedule(startTimeStr) {
   schedule = {
     createdAt: new Date().toISOString(),
     startTime: startTimeStr,
+    config: {
+      drops: config.drops.map((drop) => ({ ...drop })),
+      cycles: config.cycles,
+      cycleGapHours: config.cycleGapHours,
+    },
     doses,
   };
   saveSchedule(schedule);
@@ -56,14 +97,14 @@ function handleToggleDose(index) {
   const absDelta = Math.abs(delta);
 
   if (absDelta >= TOLERANCE_MINUTES) {
-    const hasFutureDoses = schedule.doses.some((d, i) => i !== index && !d.taken);
+    const hasFutureDoses = schedule.doses.some((item, doseIndex) => doseIndex !== index && !item.taken);
 
     if (hasFutureDoses) {
       const direction = delta > 0 ? 'in ritardo' : 'in anticipo';
-      const drop = DROPS[dose.dropIndex];
-      elements.recalcMessage.innerHTML = `Hai preso <strong class="text-white">${drop.name}</strong> alle <strong class="text-white">${actualTime}</strong> invece delle <strong class="text-white">${scheduledTime}</strong> (${absDelta} min ${direction}).<br><br>Vuoi ricalcolare gli orari dei prossimi colliri?`;
+      const drop = getScheduleConfig().drops[dose.dropIndex];
+      elements.recalcMessage.innerHTML = `Hai preso <strong class="text-white">${escapeHtml(drop.name)}</strong> alle <strong class="text-white">${actualTime}</strong> invece delle <strong class="text-white">${scheduledTime}</strong> (${absDelta} min ${direction}).<br><br>Vuoi ricalcolare gli orari dei prossimi colliri?`;
 
-      pendingRecalc = { index, actualTime, scheduledTime, deltaMinutes: delta };
+      pendingRecalc = { index, deltaMinutes: delta };
       elements.recalcModal.classList.remove('hidden');
       return;
     }
@@ -80,10 +121,10 @@ function handleRecalcYes() {
 
   schedule.doses[index].taken = true;
 
-  schedule.doses.forEach((d, i) => {
-    if (i !== index && !d.taken) {
-      const currentMin = timeToMinutes(d.time);
-      d.time = minutesToTime(currentMin + deltaMinutes);
+  schedule.doses.forEach((dose, doseIndex) => {
+    if (doseIndex !== index && !dose.taken) {
+      const currentMin = timeToMinutes(dose.time);
+      dose.time = minutesToTime(currentMin + deltaMinutes);
     }
   });
 
@@ -98,7 +139,6 @@ function handleRecalcNo() {
   const { index } = pendingRecalc;
 
   schedule.doses[index].taken = true;
-
   pendingRecalc = null;
   elements.recalcModal.classList.add('hidden');
   saveSchedule(schedule);
@@ -112,6 +152,41 @@ function updateAppView() {
   startNotificationChecker();
 }
 
+function openSettings(fromScreen) {
+  previousScreen = fromScreen;
+  showSettingsWarning(false);
+  renderSettingsScreen(getEffectiveConfig(), handleSaveSettings);
+  showSettings();
+}
+
+function closeSettings() {
+  hideSettings();
+  if (previousScreen === 'dashboard' && schedule) {
+    showDashboard();
+    renderDashboard(schedule, handleToggleDose);
+  } else {
+    showSetup();
+  }
+}
+
+function handleSaveSettings(newConfig) {
+  // A legacy active schedule did not contain its own config snapshot. Preserve it
+  // before saving new settings so the current dashboard remains unchanged.
+  if (schedule && !schedule.config) {
+    const currentConfig = getEffectiveConfig();
+    schedule.config = {
+      drops: currentConfig.drops.map((drop) => ({ ...drop })),
+      cycles: currentConfig.cycles,
+      cycleGapHours: currentConfig.cycleGapHours,
+    };
+    saveSchedule(schedule);
+  }
+
+  saveSettings(newConfig);
+  updateSetupDropName(newConfig);
+  showSettingsWarning(Boolean(schedule));
+}
+
 // Event Listeners
 elements.btnUseNow.addEventListener('click', () => {
   const now = new Date();
@@ -119,14 +194,18 @@ elements.btnUseNow.addEventListener('click', () => {
 });
 
 elements.btnGenerate.addEventListener('click', () => {
-  const val = elements.startTimeInput.value;
-  if (!val) {
+  const value = elements.startTimeInput.value;
+  if (!value) {
     elements.startTimeInput.focus();
     return;
   }
-  generateSchedule(val);
+  generateSchedule(value);
   updateAppView();
 });
+
+elements.btnSettingsSetup.addEventListener('click', () => openSettings('setup'));
+elements.btnSettingsDashboard.addEventListener('click', () => openSettings('dashboard'));
+elements.btnSettingsBack.addEventListener('click', closeSettings);
 
 elements.btnReset.addEventListener('click', () => {
   elements.confirmModal.classList.remove('hidden');
@@ -143,15 +222,15 @@ elements.btnConfirmReset.addEventListener('click', () => {
   showSetup();
 });
 
-elements.confirmModal.addEventListener('click', (e) => {
-  if (e.target === elements.confirmModal) elements.confirmModal.classList.add('hidden');
+elements.confirmModal.addEventListener('click', (event) => {
+  if (event.target === elements.confirmModal) elements.confirmModal.classList.add('hidden');
 });
 
 elements.btnRecalcYes.addEventListener('click', handleRecalcYes);
 elements.btnRecalcNo.addEventListener('click', handleRecalcNo);
 
-elements.recalcModal.addEventListener('click', (e) => {
-  if (e.target === elements.recalcModal) handleRecalcNo();
+elements.recalcModal.addEventListener('click', (event) => {
+  if (event.target === elements.recalcModal) handleRecalcNo();
 });
 
 elements.btnEnableNotifications.addEventListener('click', async () => {
@@ -166,8 +245,8 @@ elements.btnEnableNotifications.addEventListener('click', async () => {
         'test-notification'
       );
     }
-  } catch (err) {
-    console.warn('[Notifiche] Errore richiesta permesso:', err);
+  } catch (error) {
+    console.warn('[Notifiche] Errore richiesta permesso:', error);
   }
 });
 
@@ -175,9 +254,21 @@ elements.btnEnableNotifications.addEventListener('click', async () => {
 (function init() {
   registerServiceWorker();
 
+  // Load the effective settings before reading or generating any schedule.
+  const effectiveConfig = getEffectiveConfig();
+  updateSetupDropName(effectiveConfig);
+
   const saved = loadSchedule();
   if (saved && !isExpired(saved)) {
     schedule = saved;
+    if (!schedule.config) {
+      schedule.config = {
+        drops: effectiveConfig.drops.map((drop) => ({ ...drop })),
+        cycles: effectiveConfig.cycles,
+        cycleGapHours: effectiveConfig.cycleGapHours,
+      };
+      saveSchedule(schedule);
+    }
     updateAppView();
   } else {
     if (saved) clearSchedule();

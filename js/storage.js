@@ -1,4 +1,6 @@
-import { STORAGE_KEY, NOTIFIED_KEYS_STORAGE } from './config.js';
+export const STORAGE_KEY = 'healeyetracker_data';
+export const NOTIFIED_KEYS_STORAGE = 'healeyetracker_notified';
+export const SETTINGS_STORAGE_KEY = 'healeyestracker_settings';
 
 export function saveSchedule(schedule) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule));
@@ -15,6 +17,24 @@ export function loadSchedule() {
 export function clearSchedule() {
   localStorage.removeItem(STORAGE_KEY);
   clearNotifiedKeys();
+}
+
+export function saveSettings(settings) {
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
+
+export function loadSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function clearSettings() {
+  localStorage.removeItem(SETTINGS_STORAGE_KEY);
 }
 
 export function isExpired(data) {

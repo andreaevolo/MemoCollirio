@@ -107,3 +107,128 @@
 .pulse-glow {
   animation: softPulse 2.5s ease-in-out infinite;
 }
+
+/* Settings screen */
+.settings-panel {
+  padding: 1.25rem;
+  border: 1px solid rgba(71, 85, 105, 0.7);
+  border-radius: 1.5rem;
+  background: #1e293b;
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.2);
+}
+
+.settings-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #cbd5e1;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.settings-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid #475569;
+  border-radius: 0.875rem;
+  outline: none;
+  background: #334155;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.settings-input:focus {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2);
+}
+
+.settings-input.input-error {
+  border-color: #f87171;
+  box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.14);
+}
+
+.settings-error {
+  margin-top: 0.45rem;
+  color: #fca5a5;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.drop-settings-card {
+  padding: 1rem;
+  border: 2px solid rgba(71, 85, 105, 0.75);
+  border-radius: 1.25rem;
+  background: rgba(15, 23, 42, 0.52);
+  transition: border-color 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+.drop-settings-card.dragging {
+  opacity: 0.45;
+}
+
+.drop-settings-card.drag-over {
+  border-color: #38bdf8;
+  transform: translateY(2px);
+}
+
+.drag-handle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.75rem;
+  background: #334155;
+  color: #94a3b8;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.swatch-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.color-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 2px solid #475569;
+  border-radius: 0.875rem;
+  background: #334155;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.05);
+}
+
+.color-swatch.selected {
+  border-color: #f8fafc;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.65);
+}
+
+.color-swatch span {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+}
+
+@media (min-width: 640px) {
+  .settings-panel {
+    padding: 1.5rem;
+  }
+
+  .drop-settings-card {
+    padding: 1.25rem;
+  }
+}

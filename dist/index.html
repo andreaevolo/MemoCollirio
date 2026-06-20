@@ -31,14 +31,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
-  <script type="module" crossorigin src="/assets/index-B2wlVAXy.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BALmKu9q.css">
+  <script type="module" crossorigin src="/assets/index-DuqfzWN9.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-BLfT5f9F.css">
 </head>
 
 <body class="bg-slate-900 text-white min-h-screen font-sans">
 
   <!-- ===================== SETUP SCREEN ===================== -->
-  <section id="setup-screen" class="min-h-screen flex items-center justify-center px-4 py-8">
+  <section id="setup-screen" class="relative min-h-screen flex items-center justify-center px-4 py-8">
+    <button id="btn-settings-setup" type="button" aria-label="Apri impostazioni" title="Impostazioni"
+      class="absolute top-4 right-4 sm:top-6 sm:right-6 inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-sky-300 hover:border-sky-500/50 transition-colors">
+      <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.8 6.8 0 0 1 0 .255c-.008.378.137.75.43.992l1.003.827c.424.35.534.955.26 1.43l-1.296 2.247a1.125 1.125 0 0 1-1.37.49l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.592c-.55 0-1.02-.397-1.11-.94l-.213-1.281c-.063-.374-.313-.686-.645-.87a6.52 6.52 0 0 1-.22-.127c-.324-.196-.72-.257-1.075-.124l-1.217.456a1.125 1.125 0 0 1-1.37-.49l-1.296-2.247a1.125 1.125 0 0 1 .26-1.431l1.003-.827c.293-.241.438-.613.43-.992a6.8 6.8 0 0 1 0-.255c.008-.378-.137-.75-.43-.992l-1.003-.827a1.125 1.125 0 0 1-.26-1.43l1.296-2.247a1.125 1.125 0 0 1 1.37-.49l1.217.456c.355.133.75.072 1.076-.124.072-.044.146-.087.22-.128.331-.183.581-.495.644-.869l.213-1.281Z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+      </svg>
+    </button>
     <div class="w-full max-w-md fade-in-up">
       <!-- Icon -->
       <div class="text-center mb-8">
@@ -59,7 +67,7 @@
       <!-- Card -->
       <div class="bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-700/60">
         <label for="start-time" class="block text-xl font-bold text-slate-200 mb-4">
-          Orario primo collirio (Desadoc)
+          Orario primo collirio (<span id="setup-first-drop-name">Desadoc</span>)
         </label>
         <input type="time" id="start-time"
           class="w-full text-center text-4xl font-bold bg-slate-700 border-2 border-slate-600 rounded-2xl p-5 text-white focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/40"
@@ -92,14 +100,24 @@
           <h1 class="text-2xl font-extrabold tracking-tight">Programma Colliri</h1>
           <p id="header-date" class="text-sm text-slate-400 mt-0.5"></p>
         </div>
-        <button id="btn-reset"
-          class="flex items-center gap-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-bold text-base rounded-xl px-4 py-3 transition-colors">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
-          </svg>
-          Reset
-        </button>
+        <div class="flex items-center gap-2">
+          <button id="btn-settings-dashboard" type="button" aria-label="Apri impostazioni" title="Impostazioni"
+            class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-sky-300 hover:border-sky-500/50 transition-colors">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a6.8 6.8 0 0 1 0 .255c-.008.378.137.75.43.992l1.003.827c.424.35.534.955.26 1.43l-1.296 2.247a1.125 1.125 0 0 1-1.37.49l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.592c-.55 0-1.02-.397-1.11-.94l-.213-1.281c-.063-.374-.313-.686-.645-.87a6.52 6.52 0 0 1-.22-.127c-.324-.196-.72-.257-1.075-.124l-1.217.456a1.125 1.125 0 0 1-1.37-.49l-1.296-2.247a1.125 1.125 0 0 1 .26-1.431l1.003-.827c.293-.241.438-.613.43-.992a6.8 6.8 0 0 1 0-.255c.008-.378-.137-.75-.43-.992l-1.003-.827a1.125 1.125 0 0 1-.26-1.43l1.296-2.247a1.125 1.125 0 0 1 1.37-.49l1.217.456c.355.133.75.072 1.076-.124.072-.044.146-.087.22-.128.331-.183.581-.495.644-.869l.213-1.281Z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+            </svg>
+          </button>
+          <button id="btn-reset"
+            class="flex items-center gap-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 font-bold text-base rounded-xl px-4 py-3 transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
+            </svg>
+            Reset
+          </button>
+        </div>
       </div>
     </header>
 
@@ -202,6 +220,28 @@
     <div id="schedule-container" class="max-w-lg mx-auto px-4 mt-6 space-y-8"></div>
   </section>
 
+  <!-- ===================== SETTINGS SCREEN ===================== -->
+  <section id="settings-screen" class="hidden min-h-screen pb-10">
+    <header class="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-700/60 px-4 py-4">
+      <div class="max-w-lg mx-auto">
+        <button id="btn-settings-back" type="button"
+          class="inline-flex items-center gap-2 text-sky-300 hover:text-sky-200 font-bold rounded-xl px-2 py-2 -ml-2 transition-colors">
+          <span aria-hidden="true">←</span>
+          Torna indietro
+        </button>
+        <h1 class="text-3xl font-extrabold tracking-tight mt-2">Impostazioni colliri</h1>
+        <p class="text-slate-400 mt-1">Personalizza colliri e turni giornalieri.</p>
+      </div>
+    </header>
+
+    <div class="max-w-lg mx-auto px-4 mt-5">
+      <div id="settings-warning" class="hidden rounded-2xl border-2 border-amber-500/40 bg-amber-500/15 p-5 text-amber-200 font-bold" role="status">
+        Le impostazioni verranno applicate dal prossimo ciclo generato.
+      </div>
+      <div id="settings-container" class="mt-5"></div>
+    </div>
+  </section>
+
   <!-- ===================== CONFIRMATION MODAL ===================== -->
   <div id="confirm-modal"
     class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 modal-backdrop bg-black/60">
@@ -218,7 +258,7 @@
       <div class="flex gap-4">
         <button id="btn-cancel-reset"
           class="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xl rounded-2xl p-5 transition-colors">
-          Annullahealeyestracker
+          Annulla
         </button>
         <button id="btn-confirm-reset"
           class="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold text-xl rounded-2xl p-5 transition-colors">

@@ -1,4 +1,4 @@
-import { DROPS } from './config.js';
+import { getEffectiveConfig } from './config.js';
 import { timeToMinutes } from './utils.js';
 import { getNotifiedKeys, addNotifiedKey, loadSchedule } from './storage.js';
 import { elements } from './ui.js';
@@ -73,13 +73,15 @@ export function checkNotificationSchedule() {
 
   const currentSchedule = loadSchedule();
   if (!currentSchedule || !currentSchedule.doses) return;
+  const config = currentSchedule.config || getEffectiveConfig();
 
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const notifiedKeys = getNotifiedKeys();
 
   currentSchedule.doses.forEach((dose, index) => {
-    const drop = DROPS[dose.dropIndex];
+    const drop = config.drops[dose.dropIndex];
+    if (!drop) return;
     const doseMinutes = timeToMinutes(dose.time);
 
     let delta = currentMinutes - doseMinutes;
