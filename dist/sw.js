@@ -100,8 +100,8 @@ self.addEventListener('message', (event) => {
   if (!event.data) return;
 
   if (event.data.type === 'SHOW_NOTIFICATION') {
-    const { title, body, tag, data } = event.data.payload;
-    self.registration.showNotification(title, {
+    const { title, body, tag, data, triggerTimestamp } = event.data.payload;
+    const options = {
       body,
       tag, // Evita notifiche duplicate con lo stesso tag
       icon: './icon-192.png',
@@ -109,7 +109,13 @@ self.addEventListener('message', (event) => {
       vibrate: [200, 100, 200, 100, 200], // Vibrazione prominente per anziani
       requireInteraction: true, // Resta visibile finché l'utente non interagisce
       data: data || {},
-    });
+    };
+
+    if (triggerTimestamp && 'TimestampTrigger' in self) {
+      options.showTrigger = new TimestampTrigger(triggerTimestamp);
+    }
+
+    self.registration.showNotification(title, options);
   }
 });
 

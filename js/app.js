@@ -27,12 +27,17 @@ import {
   updateNotificationBanner,
   startNotificationChecker,
   sendNotification,
+  scheduleDoseTriggers,
+  cancelDoseTriggers,
+  clearAllTriggers,
+  supportsNotificationTriggers,
 } from './notifications.js';
 
 let schedule = null;
 let pendingRecalc = null;
 let previousScreen = 'setup';
 let cameFromWelcome = false;
+let triggerScheduleRunId = 0;
 const TOLERANCE_MINUTES = 10;
 
 function escapeHtml(value) {
@@ -46,6 +51,35 @@ function escapeHtml(value) {
 
 function getScheduleConfig() {
   return schedule?.config || getEffectiveConfig();
+}
+
+function scheduleAllFutureDoseTriggers({ clearExisting = false } = {}) {
+  if (!schedule || !supportsNotificationTriggers() || Notification.permission !== 'granted') return;
+
+  const runId = ++triggerScheduleRunId;
+  const currentSchedule = schedule;
+  const config = currentSchedule.config || getEffectiveConfig();
+
+  (async () => {
+    if (clearExisting) {
+      await clearAllTriggers();
+    }
+
+    if (runId !== triggerScheduleRunId) return;
+
+    await Promise.all(
+      currentSchedule.doses.map((dose, index) => {
+        if (dose.taken) return Promise.resolve();
+
+        const drop = config.drops[dose.dropIndex];
+        if (!drop) return Promise.resolve();
+
+        return scheduleDoseTriggers(dose, index, currentSchedule.createdAt, drop.name);
+      })
+    );
+  })().catch((error) => {
+    console.warn('[Notifiche] Pianificazione programma fallita:', error);
+  });
 }
 
 function generateSchedule(startTimeStr) {
@@ -77,6 +111,8 @@ function generateSchedule(startTimeStr) {
     doses,
   };
   saveSchedule(schedule);
+  clearNotifiedKeys();
+  scheduleAllFutureDoseTriggers({ clearExisting: true });
 }
 
 function handleToggleDose(index) {
@@ -86,6 +122,10 @@ function handleToggleDose(index) {
   if (dose.taken) {
     dose.taken = false;
     saveSchedule(schedule);
+    const drop = getScheduleConfig().drops[dose.dropIndex];
+    if (drop) {
+      scheduleDoseTriggers(dose, index, schedule.createdAt, drop.name);
+    }
     renderCurrentDashboard();
     return;
   }
@@ -117,6 +157,7 @@ function handleToggleDose(index) {
 
   dose.taken = true;
   saveSchedule(schedule);
+  cancelDoseTriggers(index);
   renderCurrentDashboard();
 }
 
@@ -136,6 +177,7 @@ function handleRecalcYes() {
   pendingRecalc = null;
   elements.recalcModal.classList.add('hidden');
   saveSchedule(schedule);
+  scheduleAllFutureDoseTriggers({ clearExisting: true });
   renderCurrentDashboard();
 }
 
@@ -147,6 +189,7 @@ function handleRecalcNo() {
   pendingRecalc = null;
   elements.recalcModal.classList.add('hidden');
   saveSchedule(schedule);
+  cancelDoseTriggers(index);
   renderCurrentDashboard();
 }
 
@@ -165,6 +208,8 @@ function isScheduleComplete(currentSchedule) {
 }
 
 function handleNewDay() {
+  triggerScheduleRunId += 1;
+  clearAllTriggers();
   clearSchedule();
   clearNotifiedKeys();
   schedule = null;
@@ -279,6 +324,8 @@ elements.btnCancelReset.addEventListener('click', () => {
 
 elements.btnConfirmReset.addEventListener('click', () => {
   elements.confirmModal.classList.add('hidden');
+  triggerScheduleRunId += 1;
+  clearAllTriggers();
   clearSchedule();
   schedule = null;
   showSetup();
@@ -301,6 +348,7 @@ elements.btnEnableNotifications.addEventListener('click', async () => {
     console.log('[Notifiche] Permesso:', permission);
     updateNotificationBanner();
     if (permission === 'granted') {
+      scheduleAllFutureDoseTriggers({ clearExisting: true });
       sendNotification(
         '✅ Promemoria attivati!',
         'Riceverai le notifiche per ogni collirio.',
@@ -336,7 +384,11 @@ async function init() {
   updateSetupDropName(settings);
 
   if (!data || isExpired(data)) {
-    if (data) clearSchedule();
+    if (data) {
+      triggerScheduleRunId += 1;
+      clearAllTriggers();
+      clearSchedule();
+    }
     schedule = null;
     showSetup();
     return;
@@ -353,6 +405,7 @@ async function init() {
   }
 
   renderCurrentDashboard();
+  scheduleAllFutureDoseTriggers({ clearExisting: true });
   showDashboard();
 }
 

@@ -5,6 +5,9 @@ import { elements } from './ui.js';
 
 export let swRegistration = null;
 let notificationInterval = null;
+const PRE_ALERT_MINUTES = 5;
+const POST_ALERT_MINUTES = 5;
+const TRIGGER_TAG_PREFIXES = ['pre-dose-', 'post-dose-'];
 
 export async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
@@ -68,6 +71,129 @@ export function sendNotification(title, body, tag) {
   }
 }
 
+export function supportsNotificationTriggers() {
+  return (
+    'Notification' in window
+    && 'serviceWorker' in navigator
+    && 'TimestampTrigger' in window
+    && 'showTrigger' in Notification.prototype
+  );
+}
+
+async function getNotificationRegistration() {
+  if (!('serviceWorker' in navigator)) return null;
+  if (swRegistration) return swRegistration;
+
+  try {
+    swRegistration = await navigator.serviceWorker.ready;
+    return swRegistration;
+  } catch (error) {
+    console.warn('[Notifiche] Service Worker non pronto:', error);
+    return null;
+  }
+}
+
+function getDoseDate(scheduleCreatedAt, doseTime) {
+  const createdAt = new Date(scheduleCreatedAt);
+  const createdAtMinute = new Date(createdAt);
+  const [hours, minutes] = doseTime.split(':').map(Number);
+  const doseDate = new Date(createdAt);
+
+  createdAtMinute.setSeconds(0, 0);
+  doseDate.setHours(hours, minutes, 0, 0);
+
+  // Se l'orario HH:MM risulta precedente alla creazione del programma,
+  // appartiene al giorno successivo (programma che passa la mezzanotte).
+  if (doseDate.getTime() < createdAtMinute.getTime()) {
+    doseDate.setDate(doseDate.getDate() + 1);
+  }
+
+  return doseDate;
+}
+
+async function showTriggeredNotification(title, body, tag, timestamp) {
+  if (timestamp <= Date.now()) return;
+
+  const registration = await getNotificationRegistration();
+  if (!registration) return;
+
+  await registration.showNotification(title, {
+    body,
+    tag,
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    vibrate: [200, 100, 200, 100, 200],
+    requireInteraction: true,
+    showTrigger: new TimestampTrigger(timestamp),
+    data: { url: './index.html', tag },
+  });
+}
+
+export async function scheduleDoseTriggers(dose, index, scheduleCreatedAt, dropName) {
+  if (!supportsNotificationTriggers() || Notification.permission !== 'granted' || dose.taken) return;
+
+  const doseDate = getDoseDate(scheduleCreatedAt, dose.time);
+  const doseTimestamp = doseDate.getTime();
+  const preTimestamp = doseTimestamp - PRE_ALERT_MINUTES * 60 * 1000;
+  const postTimestamp = doseTimestamp + POST_ALERT_MINUTES * 60 * 1000;
+
+  try {
+    await cancelDoseTriggers(index);
+
+    await Promise.all([
+      showTriggeredNotification(
+        `💧 ${dropName} tra 5 minuti`,
+        `Tra 5 minuti ricordati di prendere il ${dropName} (ore ${dose.time}).`,
+        `pre-dose-${index}`,
+        preTimestamp
+      ),
+      showTriggeredNotification(
+        `⚠️ ${dropName} non preso!`,
+        `Attenzione: se non hai ancora preso il ${dropName} previsto per le ${dose.time}, apri l'app per registrarlo.`,
+        `post-dose-${index}`,
+        postTimestamp
+      ),
+    ]);
+  } catch (error) {
+    console.warn('[Notifiche] Pianificazione trigger fallita:', error);
+  }
+}
+
+export async function cancelDoseTriggers(index) {
+  if (!supportsNotificationTriggers() || Notification.permission !== 'granted') return;
+
+  const registration = await getNotificationRegistration();
+  if (!registration) return;
+
+  const tags = [`pre-dose-${index}`, `post-dose-${index}`];
+
+  try {
+    const notificationsByTag = await Promise.all(
+      tags.map((tag) => registration.getNotifications({ tag }))
+    );
+
+    notificationsByTag.flat().forEach((notification) => notification.close());
+  } catch (error) {
+    console.warn('[Notifiche] Cancellazione trigger dose fallita:', error);
+  }
+}
+
+export async function clearAllTriggers() {
+  if (!supportsNotificationTriggers() || Notification.permission !== 'granted') return;
+
+  const registration = await getNotificationRegistration();
+  if (!registration) return;
+
+  try {
+    const notifications = await registration.getNotifications({ includeTriggered: true });
+    notifications
+      .filter((notification) => TRIGGER_TAG_PREFIXES.some((prefix) => notification.tag.startsWith(prefix)))
+      .forEach((notification) => notification.close());
+  } catch (error) {
+    console.warn('[Notifiche] Pulizia trigger fallita:', error);
+  }
+}
+
 export function checkNotificationSchedule() {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
@@ -111,7 +237,13 @@ export function checkNotificationSchedule() {
 }
 
 export function startNotificationChecker() {
-  checkNotificationSchedule();
   if (notificationInterval) clearInterval(notificationInterval);
+
+  if (supportsNotificationTriggers()) {
+    notificationInterval = null;
+    return;
+  }
+
+  checkNotificationSchedule();
   notificationInterval = setInterval(checkNotificationSchedule, 60 * 1000);
 }
