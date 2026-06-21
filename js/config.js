@@ -7,19 +7,21 @@ import {
 
 // Default names and colors. They remain the fallback when no settings are saved.
 export const DROPS = [
-  { name: "Desadoc", shortName: "Desadoc", color: "sky", offsetMinutes: 0 },
-  { name: "Quimox", shortName: "Quimox", color: "violet", offsetMinutes: 60 },
+  { name: "Desadoc", shortName: "Desadoc", color: "sky", offsetMinutes: 0, note: "" },
+  { name: "Quimox", shortName: "Quimox", color: "violet", offsetMinutes: 60, note: "" },
   {
     name: "Zamidine",
     shortName: "Zamidine",
     color: "amber",
     offsetMinutes: 90,
+    note: "",
   },
   {
     name: "Etacortilen",
     shortName: "Etacortilen",
     color: "rose",
     offsetMinutes: 120,
+    note: "",
   },
 ];
 

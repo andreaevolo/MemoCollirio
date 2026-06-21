@@ -1,5 +1,5 @@
 import { COLOR_MAP, getEffectiveConfig } from './config.js';
-import { daysRemaining, loadSchedule } from './storage.js';
+import { daysRemaining, loadSchedule, loadSettings } from './storage.js';
 import { formatDateIT, minutesToTime } from './utils.js';
 
 // DOM Elements
@@ -203,6 +203,7 @@ export function renderDashboard(schedule, onToggleDose, isComplete = false, onNe
 
   const config = schedule.config || getEffectiveConfig();
   const drops = config.drops;
+  const savedDrops = loadSettings()?.drops || [];
 
   elements.headerDate.textContent = formatDateIT(new Date(schedule.createdAt));
 
@@ -245,13 +246,20 @@ export function renderDashboard(schedule, onToggleDose, isComplete = false, onNe
       const globalIndex = schedule.doses.indexOf(dose);
       const safeName = escapeHtml(drop.name);
       const safeShortName = escapeHtml(drop.shortName);
-      const card = document.createElement('button');
-      card.type = 'button';
+      const note = dose.note || drop.note || savedDrops[dose.dropIndex]?.note || '';
+      const safeNote = escapeHtml(note);
+      const hasNote = typeof note === 'string' && note.trim().length > 0;
+      const noteToggle = hasNote
+        ? '<button type="button" class="note-toggle ml-1 border-0 bg-transparent p-0 align-baseline text-base leading-none text-slate-500 hover:text-sky-300" aria-label="Mostra nota">ⓘ</button>'
+        : '';
+      const card = document.createElement('div');
       card.id = `dose-${globalIndex}`;
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
       card.setAttribute('aria-label', `${drop.name} alle ${dose.time}${dose.taken ? ', preso' : ''}`);
       card.className = dose.taken
-        ? 'dose-card w-full flex items-center gap-4 p-5 sm:p-6 rounded-2xl border-2 bg-emerald-600/20 border-emerald-500/40 text-left cursor-pointer'
-        : `dose-card w-full flex items-center gap-4 p-5 sm:p-6 rounded-2xl border-2 ${colors.bg} ${colors.border} text-left cursor-pointer hover:brightness-125`;
+        ? 'dose-card w-full p-5 sm:p-6 rounded-2xl border-2 bg-emerald-600/20 border-emerald-500/40 text-left cursor-pointer'
+        : `dose-card w-full p-5 sm:p-6 rounded-2xl border-2 ${colors.bg} ${colors.border} text-left cursor-pointer hover:brightness-125`;
 
       const indicator = dose.taken
         ? `<div class="flex-shrink-0 w-12 h-12 rounded-xl bg-emerald-500 flex items-center justify-center check-pop">
@@ -264,21 +272,42 @@ export function renderDashboard(schedule, onToggleDose, isComplete = false, onNe
           </div>`;
 
       card.innerHTML = `
-        ${indicator}
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="text-xs font-bold px-2 py-0.5 rounded-md ${dose.taken ? 'bg-emerald-500/20 text-emerald-300' : colors.badge}">${safeShortName}</span>
-            <span class="text-lg font-bold ${dose.taken ? 'text-emerald-200' : 'text-slate-200'}">${safeName}</span>
+        <div class="dose-row flex items-center gap-4">
+          ${indicator}
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-xs font-bold px-2 py-0.5 rounded-md ${dose.taken ? 'bg-emerald-500/20 text-emerald-300' : colors.badge}">${safeShortName}</span>
+              <span class="dose-name text-lg font-bold ${dose.taken ? 'text-emerald-200' : 'text-slate-200'}">${safeName}${noteToggle}</span>
+            </div>
+            <span class="dose-time text-3xl font-extrabold ${dose.taken ? 'text-emerald-400' : colors.text}">${dose.time}</span>
           </div>
-          <span class="text-3xl font-extrabold ${dose.taken ? 'text-emerald-400' : colors.text}">${dose.time}</span>
+          ${dose.taken
+            ? '<span class="dose-status text-sm font-bold text-emerald-400 flex-shrink-0">PRESO ✓</span>'
+            : '<span class="dose-status text-sm font-bold text-slate-500 flex-shrink-0">Tocca per confermare</span>'
+          }
         </div>
-        ${dose.taken
-          ? '<span class="text-sm font-bold text-emerald-400 flex-shrink-0">PRESO ✓</span>'
-          : '<span class="text-sm font-bold text-slate-500 flex-shrink-0">Tocca per confermare</span>'
-        }
+        ${hasNote ? `<div class="dose-note hidden mt-3 pl-16 text-xs italic text-slate-400">${safeNote}</div>` : ''}
       `;
 
       card.addEventListener('click', () => onToggleDose(globalIndex));
+      card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onToggleDose(globalIndex);
+        }
+      });
+
+      const toggle = card.querySelector('.note-toggle');
+      if (toggle) {
+        const noteEl = card.querySelector('.dose-note');
+        noteEl?.addEventListener('click', (event) => event.stopPropagation());
+        toggle.addEventListener('keydown', (event) => event.stopPropagation());
+        toggle.addEventListener('click', (event) => {
+          event.stopPropagation();
+          noteEl.classList.toggle('hidden');
+          toggle.setAttribute('aria-label', noteEl.classList.contains('hidden') ? 'Mostra nota' : 'Nascondi nota');
+        });
+      }
       cardsContainer.appendChild(card);
     });
 
@@ -309,13 +338,15 @@ export function renderDashboard(schedule, onToggleDose, isComplete = false, onNe
 }
 
 export function renderSettingsScreen(config, onSave) {
+  const savedDrops = loadSettings()?.drops || [];
   const draft = {
     drops: Array.isArray(config.drops)
-      ? config.drops.map((drop) => ({
+      ? config.drops.map((drop, index) => ({
           name: drop?.name || '',
           shortName: drop?.shortName || drop?.name || '',
           color: normalizeColor(drop?.color),
           offsetMinutes: clampOffset(drop?.offsetMinutes),
+          note: drop?.note ?? savedDrops[index]?.note ?? '',
         }))
       : [],
     cycles: Number.isInteger(Number(config.cycles)) ? Math.min(6, Math.max(1, Number(config.cycles))) : 1,
@@ -584,6 +615,11 @@ export function renderSettingsScreen(config, onSave) {
                 <p class="hidden settings-error drop-offset-error">Inserisci un numero intero tra 0 e 240</p>
               </div>
 
+              <div class="mt-4">
+                <label class="settings-label" for="drop-note-${index}">Nota (opzionale)</label>
+                <input id="drop-note-${index}" class="settings-input drop-note" type="text" maxlength="120" placeholder="es. agita prima dell'uso" value="${escapeHtml(drop.note || '')}" data-index="${index}" />
+              </div>
+
               <fieldset class="mt-4">
                 <legend class="settings-label">Colore</legend>
                 <div class="drop-colors grid grid-cols-6 gap-3 max-w-[15rem]" data-index="${index}"></div>
@@ -630,6 +666,12 @@ export function renderSettingsScreen(config, onSave) {
         draft.drops[Number(input.dataset.index)].offsetMinutes = input.value;
         clearError(input, input.nextElementSibling.nextElementSibling);
         renderPreview();
+      });
+    });
+
+    dropList.querySelectorAll('.drop-note').forEach((input) => {
+      input.addEventListener('input', () => {
+        draft.drops[Number(input.dataset.index)].note = input.value;
       });
     });
 
@@ -715,6 +757,7 @@ export function renderSettingsScreen(config, onSave) {
       shortName: shortNameInput.value.trim() || nameInput.value.trim(),
       color: normalizeColor(addColor),
       offsetMinutes: offset,
+      note: '',
     });
     nameInput.value = '';
     shortNameInput.value = '';
@@ -766,6 +809,7 @@ export function renderSettingsScreen(config, onSave) {
       const nameError = card.querySelector('.drop-name-error');
       const offsetInput = card.querySelector('.drop-offset');
       const offsetError = card.querySelector('.drop-offset-error');
+      const noteInput = card.querySelector('.drop-note');
       const offset = Number(offsetInput.value);
 
       clearError(nameInput, nameError);
@@ -784,6 +828,7 @@ export function renderSettingsScreen(config, onSave) {
       draft.drops[index].shortName = card.querySelector('.drop-short-name').value.trim() || nameInput.value.trim();
       draft.drops[index].color = normalizeColor(draft.drops[index].color);
       draft.drops[index].offsetMinutes = clampOffset(offset);
+      draft.drops[index].note = noteInput.value.trim();
     });
 
     const gapInput = document.getElementById('cycle-gap-hours');
