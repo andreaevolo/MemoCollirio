@@ -211,6 +211,30 @@ export function renderDashboard(schedule, onToggleDose, isComplete = false, onNe
   const takenCount = schedule.doses.filter((dose) => dose.taken).length;
   elements.progressLabel.textContent = `${takenCount} / ${totalDoses}`;
   elements.progressBar.style.width = `${totalDoses ? (takenCount / totalDoses) * 100 : 0}%`;
+  elements.progressBar.style.background = isComplete ? '#10b981' : '';
+
+  let completionHint = document.getElementById('completion-hint-top');
+  if (!completionHint) {
+    completionHint = document.createElement('div');
+    completionHint.id = 'completion-hint-top';
+    elements.progressBar.parentElement.insertAdjacentElement('afterend', completionHint);
+  }
+
+  if (isComplete) {
+    completionHint.className = 'flex h-11 items-center justify-between gap-3 overflow-hidden text-sm font-bold';
+    completionHint.innerHTML = `
+      <span class="flex items-center gap-2 text-emerald-300">
+        <span aria-hidden="true">✓</span>
+        <span>Tutto completato oggi!</span>
+      </span>
+      <button id="btnNewDayTop" type="button" class="shrink-0 text-right text-sky-300 hover:text-sky-200 font-extrabold transition-colors">
+        Crea Programma per Domani →
+      </button>
+    `;
+  } else {
+    completionHint.className = 'hidden';
+    completionHint.innerHTML = '';
+  }
   elements.scheduleContainer.innerHTML = '';
 
   for (let cycle = 0; cycle < config.cycles; cycle++) {

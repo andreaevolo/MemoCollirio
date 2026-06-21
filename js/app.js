@@ -230,6 +230,7 @@ function renderCurrentDashboard() {
   }
 
   renderDashboard(schedule, handleToggleDose, isScheduleComplete(schedule), handleNewDay);
+  document.getElementById('btnNewDayTop')?.addEventListener('click', handleNewDay);
   renderCountdownBanner(settings);
 }
 
