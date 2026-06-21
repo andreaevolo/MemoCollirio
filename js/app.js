@@ -57,6 +57,32 @@ function getScheduleConfig() {
   return schedule?.config || getEffectiveConfig();
 }
 
+function normalizeTimePart(input, max) {
+  if (!input) return null;
+  if (input.value.trim() === '') return null;
+  const value = Number(input.value);
+  if (!Number.isFinite(value)) return null;
+  const clamped = Math.min(max, Math.max(0, Math.trunc(value)));
+  input.value = pad(clamped);
+  return input.value;
+}
+
+function getSetupStartTime() {
+  const hour = normalizeTimePart(elements.startHourInput, 23);
+  const minute = normalizeTimePart(elements.startMinuteInput, 59);
+
+  if (hour === null) {
+    elements.startHourInput?.focus();
+    return null;
+  }
+  if (minute === null) {
+    elements.startMinuteInput?.focus();
+    return null;
+  }
+
+  return `${hour}:${minute}`;
+}
+
 function scheduleAllFutureDoseTriggers({ clearExisting = false } = {}) {
   if (!schedule || !supportsNotificationTriggers() || Notification.permission !== 'granted') return;
 
@@ -362,15 +388,18 @@ function handleSaveSettings(newConfig) {
 }
 
 // Event Listeners
+elements.startHourInput?.addEventListener('blur', () => normalizeTimePart(elements.startHourInput, 23));
+elements.startMinuteInput?.addEventListener('blur', () => normalizeTimePart(elements.startMinuteInput, 59));
+
 elements.btnUseNow.addEventListener('click', () => {
   const now = new Date();
-  elements.startTimeInput.value = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  elements.startHourInput.value = pad(now.getHours());
+  elements.startMinuteInput.value = pad(now.getMinutes());
 });
 
 elements.btnGenerate.addEventListener('click', () => {
-  const value = elements.startTimeInput.value;
+  const value = getSetupStartTime();
   if (!value) {
-    elements.startTimeInput.focus();
     return;
   }
   generateSchedule(value);
@@ -471,7 +500,6 @@ async function init() {
     if (data) {
       triggerScheduleRunId += 1;
       clearAllTriggers();
-      clearSchedule();
     }
     schedule = null;
     showSetup();

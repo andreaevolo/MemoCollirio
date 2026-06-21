@@ -12,7 +12,11 @@ export const elements = {
   settingsScreen: document.getElementById('settings-screen'),
   settingsContainer: document.getElementById('settings-container'),
   settingsWarning: document.getElementById('settings-warning'),
-  startTimeInput: document.getElementById('start-time'),
+  setupSubtitle: document.getElementById('setup-subtitle'),
+  setupIconContainer: document.getElementById('setup-icon-container'),
+  startHourInput: document.getElementById('start-hour'),
+  startMinuteInput: document.getElementById('start-minute'),
+  setupTimeHint: document.getElementById('setup-time-hint'),
   setupFirstDropName: document.getElementById('setup-first-drop-name'),
   btnUseNow: document.getElementById('btn-use-now'),
   btnGenerate: document.getElementById('btn-generate'),
@@ -74,6 +78,18 @@ function formatEndDateIT(value) {
   return date ? formatDateIT(date) : '';
 }
 
+function getPreviousStartTime() {
+  const data = loadSchedule();
+  const startTime = data?.startTime
+    ?? data?.schedule?.startTime
+    ?? data?.schedule?.[0]?.doses?.[0]?.time
+    ?? data?.schedule?.doses?.[0]?.time
+    ?? data?.doses?.[0]?.time
+    ?? null;
+
+  return /^\d{2}:\d{2}$/.test(startTime || '') ? startTime : null;
+}
+
 export function showWelcome() {
   elements.welcomeScreen.classList.remove('hidden');
   elements.setupScreen.classList.add('hidden');
@@ -83,6 +99,28 @@ export function showWelcome() {
 }
 
 export function showSetup() {
+  const settings = loadSettings();
+  const firstDropName = settings?.drops?.[0]?.name;
+  if (elements.setupSubtitle) {
+    elements.setupSubtitle.textContent = firstDropName
+      ? `A che ora hai preso ${firstDropName} stamattina?`
+      : "Imposta l'orario del primo collirio di oggi.";
+  }
+
+  if (elements.setupIconContainer) {
+    elements.setupIconContainer.className = 'inline-flex items-center justify-center w-24 h-24 rounded-full bg-[#1e293b] border border-slate-700/70 mb-5';
+  }
+
+  const previousStartTime = getPreviousStartTime();
+  const defaultStartTime = previousStartTime || '08:00';
+  const [hour, minute] = defaultStartTime.split(':');
+  if (elements.startHourInput) elements.startHourInput.value = hour;
+  if (elements.startMinuteInput) elements.startMinuteInput.value = minute;
+  if (elements.setupTimeHint) {
+    elements.setupTimeHint.textContent = previousStartTime ? `Ieri hai iniziato alle ${previousStartTime}` : '';
+    elements.setupTimeHint.classList.toggle('hidden', !previousStartTime);
+  }
+
   elements.welcomeScreen.classList.add('hidden');
   elements.setupScreen.classList.remove('hidden');
   elements.dashboardScreen.classList.add('hidden');

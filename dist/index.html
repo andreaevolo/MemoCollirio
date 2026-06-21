@@ -77,7 +77,7 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <script type="module" crossorigin src="./assets/app-BmHCQmaO.js"></script>
+    <script type="module" crossorigin src="./assets/app-CC1jmsLA.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/app-BLfT5f9F.css">
   </head>
 
@@ -90,7 +90,8 @@
       <div class="w-full max-w-md fade-in-up">
         <div class="text-center mb-8">
           <div
-            class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-sky-600/20 mb-5"
+            id="setup-icon-container"
+            class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-[#1e293b] border border-slate-700/70 mb-5"
           >
             <svg
               class="w-14 h-14 text-sky-400"
@@ -199,7 +200,7 @@
           >
             MemoCollirio
           </h1>
-          <p class="mt-3 text-lg text-slate-400">
+          <p id="setup-subtitle" class="mt-3 text-lg text-slate-400">
             Imposta l'orario del primo collirio per generare il programma
             giornaliero.
           </p>
@@ -210,25 +211,50 @@
           class="bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-700/60"
         >
           <label
-            for="start-time"
+            for="start-hour"
             class="block text-xl font-bold text-slate-200 mb-4"
           >
             Orario primo collirio
           </label>
-          <input
-            type="time"
-            id="start-time"
-            class="w-full text-center text-4xl font-bold bg-slate-700 border-2 border-slate-600 rounded-2xl p-5 text-white focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/40"
-            value="08:00"
-          />
+          <div class="flex items-start justify-center gap-4" aria-label="Orario primo collirio">
+            <div class="flex flex-col items-center gap-2">
+              <input
+                type="number"
+                id="start-hour"
+                min="0"
+                max="23"
+                step="1"
+                inputmode="numeric"
+                class="min-w-[80px] w-24 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-center text-[2.5rem] leading-none font-extrabold bg-slate-700 border-2 border-slate-600 rounded-2xl px-3 py-5 text-white focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/40"
+                value="08"
+              />
+              <span class="text-xs font-bold tracking-widest text-slate-500">HH</span>
+            </div>
+            <div class="pt-4 text-5xl font-black text-slate-500" aria-hidden="true">:</div>
+            <div class="flex flex-col items-center gap-2">
+              <input
+                type="number"
+                id="start-minute"
+                min="0"
+                max="59"
+                step="1"
+                inputmode="numeric"
+                class="min-w-[80px] w-24 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none text-center text-[2.5rem] leading-none font-extrabold bg-slate-700 border-2 border-slate-600 rounded-2xl px-3 py-5 text-white focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/40"
+                value="00"
+              />
+              <span class="text-xs font-bold tracking-widest text-slate-500">MM</span>
+            </div>
+          </div>
+          <p id="setup-time-hint" class="hidden mt-3 text-center text-xs font-bold text-slate-500"></p>
 
           <button
             id="btn-use-now"
-            class="w-full mt-5 flex items-center justify-center gap-3 bg-slate-700 hover:bg-slate-600 text-sky-300 font-bold text-xl rounded-2xl p-5 transition-colors"
+            type="button"
+            class="w-full mt-3 flex min-h-11 items-center justify-center gap-2 bg-transparent px-3 py-3 text-sm font-bold text-sky-300 underline-offset-4 transition-colors hover:text-sky-200 hover:underline focus-visible:outline-none focus-visible:text-sky-200 focus-visible:underline"
           >
             <!-- Clock icon -->
             <svg
-              class="w-7 h-7"
+              class="w-4 h-4"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
