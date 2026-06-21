@@ -6,6 +6,7 @@ import {
   clearSchedule,
   clearNotifiedKeys,
   isExpired,
+  isTherapyExpired,
   loadSettings,
   saveSettings,
 } from './storage.js';
@@ -15,11 +16,14 @@ import {
   showSetup,
   showDashboard,
   showSettings,
+  showTherapyExpired,
   hideSettings,
   showToast,
   showSettingsWarning,
   updateSetupDropName,
   renderDashboard,
+  renderCountdownBanner,
+  renderTherapyExpiredScreen,
   renderSettingsScreen,
 } from './ui.js';
 import {
@@ -217,7 +221,16 @@ function handleNewDay() {
 }
 
 function renderCurrentDashboard() {
+  const settings = loadSettings();
+  if (settings && isTherapyExpired(settings)) {
+    renderTherapyExpiredScreen(settings);
+    showTherapyExpired();
+    wireTherapyExpiredActions();
+    return;
+  }
+
   renderDashboard(schedule, handleToggleDose, isScheduleComplete(schedule), handleNewDay);
+  renderCountdownBanner(settings);
 }
 
 function updateAppView() {
@@ -227,12 +240,64 @@ function updateAppView() {
   startNotificationChecker();
 }
 
+function syncActiveScheduleDisplayConfig(newConfig) {
+  if (!schedule) return;
+
+  if (!schedule.config) {
+    const currentConfig = getEffectiveConfig();
+    schedule.config = {
+      drops: currentConfig.drops.map((drop) => ({ ...drop })),
+      cycles: currentConfig.cycles,
+      cycleGapHours: currentConfig.cycleGapHours,
+    };
+  }
+
+  schedule.config.drops = schedule.config.drops.map((drop, index) => {
+    const updatedDrop = newConfig.drops[index];
+    if (!updatedDrop) return drop;
+
+    return {
+      ...drop,
+      name: updatedDrop.name,
+      shortName: updatedDrop.shortName,
+      color: updatedDrop.color,
+    };
+  });
+
+  saveSchedule(schedule);
+  scheduleAllFutureDoseTriggers({ clearExisting: true });
+}
+
 function openSettings(fromScreen) {
   previousScreen = fromScreen;
   showSettingsWarning(false);
-  const config = getEffectiveConfig();
+  const savedSettings = loadSettings();
+  const config = {
+    ...getEffectiveConfig(),
+    endDate: savedSettings?.endDate || null,
+  };
   renderSettingsScreen(cameFromWelcome ? { ...config, drops: [] } : config, handleSaveSettings);
   showSettings();
+}
+
+function wireTherapyExpiredActions() {
+  document.getElementById('btnNewTherapy')?.addEventListener('click', () => {
+    triggerScheduleRunId += 1;
+    clearAllTriggers();
+    clearSchedule();
+    clearNotifiedKeys();
+    schedule = null;
+
+    const settings = loadSettings() || {};
+    delete settings.endDate;
+    saveSettings(settings);
+    updateSetupDropName(getEffectiveConfig());
+    openSettings('therapyExpired');
+  });
+
+  document.getElementById('btnEditTherapySettings')?.addEventListener('click', () => {
+    openSettings('therapyExpired');
+  });
 }
 
 function closeSettings() {
@@ -251,6 +316,13 @@ function closeSettings() {
   }
 
   if (previousScreen === 'dashboard' && schedule) {
+    const settings = loadSettings();
+    if (settings && isTherapyExpired(settings)) {
+      renderTherapyExpiredScreen(settings);
+      showTherapyExpired();
+      wireTherapyExpiredActions();
+      return;
+    }
     showDashboard();
     renderCurrentDashboard();
   } else {
@@ -259,8 +331,11 @@ function closeSettings() {
 }
 
 function handleSaveSettings(newConfig) {
-  // A legacy active schedule did not contain its own config snapshot. Preserve it
-  // before saving new settings so the current dashboard remains unchanged.
+  const endDate = document.getElementById('settingsEndDate')?.value || null;
+  newConfig.endDate = endDate;
+
+  // A legacy active schedule did not contain its own config snapshot. Capture the
+  // current config before saving new settings, then sync display fields below.
   if (schedule && !schedule.config) {
     const currentConfig = getEffectiveConfig();
     schedule.config = {
@@ -268,10 +343,10 @@ function handleSaveSettings(newConfig) {
       cycles: currentConfig.cycles,
       cycleGapHours: currentConfig.cycleGapHours,
     };
-    saveSchedule(schedule);
   }
 
   saveSettings(newConfig);
+  syncActiveScheduleDisplayConfig(newConfig);
   updateSetupDropName(newConfig);
 
   if (cameFromWelcome) {
@@ -375,6 +450,14 @@ async function init() {
 
   const settings = loadSettings();
   const data = loadSchedule();
+
+  if (settings && isTherapyExpired(settings)) {
+    schedule = data?.schedule || data || null;
+    renderTherapyExpiredScreen(settings);
+    showTherapyExpired();
+    wireTherapyExpiredActions();
+    return;
+  }
 
   if (!settings) {
     showWelcome();

@@ -1,4 +1,5 @@
 import { COLOR_MAP, getEffectiveConfig } from './config.js';
+import { daysRemaining, loadSchedule } from './storage.js';
 import { formatDateIT, minutesToTime } from './utils.js';
 
 // DOM Elements
@@ -6,6 +7,8 @@ export const elements = {
   welcomeScreen: document.getElementById('welcomeScreen'),
   setupScreen: document.getElementById('setup-screen'),
   dashboardScreen: document.getElementById('dashboard-screen'),
+  therapyExpiredScreen: document.getElementById('therapyExpiredScreen'),
+  countdownBanner: document.getElementById('countdownBanner'),
   settingsScreen: document.getElementById('settings-screen'),
   settingsContainer: document.getElementById('settings-container'),
   settingsWarning: document.getElementById('settings-warning'),
@@ -37,7 +40,7 @@ export const elements = {
   btnEnableNotifications: document.getElementById('btn-enable-notifications'),
 };
 
-const COLOR_NAMES = Object.keys(COLOR_MAP);
+const COLOR_NAMES = Object.keys(COLOR_MAP).filter((color) => color !== 'emerald');
 const PREVIEW_START_MINUTES = 8 * 60;
 
 function escapeHtml(value) {
@@ -59,10 +62,23 @@ function clampOffset(value) {
   return Math.min(240, Math.max(0, number));
 }
 
+function parseDateOnly(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function formatEndDateIT(value) {
+  const date = parseDateOnly(value);
+  return date ? formatDateIT(date) : '';
+}
+
 export function showWelcome() {
   elements.welcomeScreen.classList.remove('hidden');
   elements.setupScreen.classList.add('hidden');
   elements.dashboardScreen.classList.add('hidden');
+  elements.therapyExpiredScreen.classList.add('hidden');
   elements.settingsScreen.classList.add('hidden');
 }
 
@@ -70,6 +86,7 @@ export function showSetup() {
   elements.welcomeScreen.classList.add('hidden');
   elements.setupScreen.classList.remove('hidden');
   elements.dashboardScreen.classList.add('hidden');
+  elements.therapyExpiredScreen.classList.add('hidden');
   elements.settingsScreen.classList.add('hidden');
 }
 
@@ -77,6 +94,7 @@ export function showDashboard() {
   elements.welcomeScreen.classList.add('hidden');
   elements.setupScreen.classList.add('hidden');
   elements.dashboardScreen.classList.remove('hidden');
+  elements.therapyExpiredScreen.classList.add('hidden');
   elements.settingsScreen.classList.add('hidden');
 }
 
@@ -84,8 +102,22 @@ export function showSettings() {
   elements.welcomeScreen.classList.add('hidden');
   elements.setupScreen.classList.add('hidden');
   elements.dashboardScreen.classList.add('hidden');
+  elements.therapyExpiredScreen.classList.add('hidden');
   elements.settingsScreen.classList.remove('hidden');
   window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+export function showTherapyExpired() {
+  elements.welcomeScreen.classList.add('hidden');
+  elements.setupScreen.classList.add('hidden');
+  elements.dashboardScreen.classList.add('hidden');
+  elements.therapyExpiredScreen.classList.remove('hidden');
+  elements.settingsScreen.classList.add('hidden');
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+export function hideTherapyExpired() {
+  elements.therapyExpiredScreen.classList.add('hidden');
 }
 
 export function hideSettings() {
@@ -112,6 +144,58 @@ export function showToast(message) {
 export function updateSetupDropName(config = getEffectiveConfig()) {
   if (!elements.setupFirstDropName) return;
   elements.setupFirstDropName.textContent = config.drops[0]?.name || 'primo collirio';
+}
+
+export function renderCountdownBanner(settings) {
+  if (!elements.countdownBanner) return;
+
+  const days = daysRemaining(settings);
+  if (days === null) {
+    elements.countdownBanner.className = 'hidden';
+    elements.countdownBanner.textContent = '';
+    return;
+  }
+
+  let text = '';
+  let styleClass = 'bg-[#1e293b] border-slate-700 text-white';
+
+  if (days > 3) {
+    text = days + ' giorni rimanenti alla fine della terapia';
+  } else if (days > 1) {
+    text = '⚠️ Ultimi ' + days + ' giorni di terapia';
+    styleClass = 'bg-amber-500/15 border-amber-500/40 text-amber-100';
+  } else if (days === 1) {
+    text = '⚠️ Ultimo giorno di terapia';
+    styleClass = 'bg-red-500/15 border-red-500/40 text-red-100';
+  } else {
+    text = '⚠️ La terapia termina oggi';
+    styleClass = 'bg-red-500/15 border-red-500/40 text-red-100';
+  }
+
+  elements.countdownBanner.className = 'max-w-lg mx-auto px-4 mt-5';
+  elements.countdownBanner.innerHTML = '<div class="rounded-2xl border ' + styleClass + ' px-5 py-4 text-center text-base sm:text-lg font-extrabold shadow-xl" role="status">'
+    + escapeHtml(text)
+    + '</div>';
+}
+
+export function renderTherapyExpiredScreen(settings) {
+  const formattedDate = formatEndDateIT(settings?.endDate);
+  elements.therapyExpiredScreen.innerHTML = [
+    '<section class="min-h-screen flex items-center justify-center px-4 py-10 bg-[#0f172a]">',
+    '  <div class="w-full max-w-md text-center fade-in-up">',
+    '    <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-emerald-500/20 mb-6">',
+    '      <span class="text-5xl text-emerald-300" aria-hidden="true">✓</span>',
+    '    </div>',
+    '    <div class="bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-700/60">',
+    '      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">Terapia Completata</h1>',
+    '      <p class="mt-4 text-lg text-slate-300 leading-relaxed">La tua terapia è terminata il <strong class="text-white">' + escapeHtml(formattedDate) + '</strong>.</p>',
+    '      <p class="mt-3 text-xl font-extrabold text-emerald-300">Ottimo lavoro!</p>',
+    '      <button id="btnNewTherapy" type="button" class="w-full mt-7 bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-extrabold text-xl rounded-2xl p-5 shadow-lg shadow-sky-600/30 transition-colors">Inizia Nuova Terapia</button>',
+    '      <button id="btnEditTherapySettings" type="button" class="w-full mt-4 border-2 border-slate-600 hover:border-sky-500 hover:bg-sky-500/10 text-slate-200 hover:text-sky-200 font-extrabold text-xl rounded-2xl p-5 transition-colors">Modifica Impostazioni</button>',
+    '    </div>',
+    '  </div>',
+    '</section>',
+  ].join('');
 }
 
 export function renderDashboard(schedule, onToggleDose, isComplete = false, onNewDay = null) {
@@ -236,6 +320,7 @@ export function renderSettingsScreen(config, onSave) {
       : [],
     cycles: Number.isInteger(Number(config.cycles)) ? Math.min(6, Math.max(1, Number(config.cycles))) : 1,
     cycleGapHours: Number.isFinite(Number(config.cycleGapHours)) ? Math.min(12, Math.max(1, Number(config.cycleGapHours))) : 1,
+    endDate: config.endDate || '',
   };
   let addColor = 'sky';
   let draggedIndex = null;
@@ -294,6 +379,14 @@ export function renderSettingsScreen(config, onSave) {
             <p id="cycle-count-error" class="hidden settings-error">Inserisci un numero intero tra 1 e 6</p>
           </div>
         </div>
+        <div class="mt-5">
+          <label for="settingsEndDate" class="settings-label">Data fine terapia (opzionale)</label>
+          <div class="flex items-center gap-3">
+            <input id="settingsEndDate" class="settings-input" type="date" value="${escapeHtml(draft.endDate)}" />
+            <button id="btnClearSettingsEndDate" type="button" class="${draft.endDate ? '' : 'hidden'} shrink-0 w-12 h-12 rounded-xl border border-slate-600 text-slate-300 hover:border-red-400 hover:text-red-300 hover:bg-red-500/10 text-2xl font-bold transition-colors" aria-label="Cancella data fine terapia">×</button>
+          </div>
+          <p id="settingsEndDateDuration" class="hidden mt-2 text-sm font-bold text-slate-400"></p>
+        </div>
       </section>
 
       <section class="settings-panel">
@@ -321,6 +414,9 @@ export function renderSettingsScreen(config, onSave) {
   const addColors = document.getElementById('new-drop-colors');
   const saveError = document.getElementById('settings-save-error');
   const saveButton = document.getElementById('btn-save-settings');
+  const endDateInput = document.getElementById('settingsEndDate');
+  const clearEndDateButton = document.getElementById('btnClearSettingsEndDate');
+  const endDateDuration = document.getElementById('settingsEndDateDuration');
 
   function clearError(input, error) {
     input.classList.remove('input-error');
@@ -330,6 +426,33 @@ export function renderSettingsScreen(config, onSave) {
   function showError(input, error) {
     input.classList.add('input-error');
     error.classList.remove('hidden');
+  }
+
+  function getDurationReferenceDate() {
+    const storedSchedule = loadSchedule();
+    const activeSchedule = storedSchedule?.schedule || storedSchedule;
+    const reference = activeSchedule?.createdAt ? new Date(activeSchedule.createdAt) : new Date();
+    reference.setHours(0, 0, 0, 0);
+    return reference;
+  }
+
+  function updateEndDateDuration() {
+    if (!endDateInput || !clearEndDateButton || !endDateDuration) return;
+
+    draft.endDate = endDateInput.value || '';
+    clearEndDateButton.classList.toggle('hidden', !draft.endDate);
+
+    const end = parseDateOnly(draft.endDate);
+    if (!end) {
+      endDateDuration.classList.add('hidden');
+      endDateDuration.textContent = '';
+      return;
+    }
+
+    const start = getDurationReferenceDate();
+    const duration = Math.round((end - start) / (1000 * 60 * 60 * 24));
+    endDateDuration.textContent = 'Durata: ' + duration + ' giorni';
+    endDateDuration.classList.remove('hidden');
   }
 
   function showSaveFeedback() {
@@ -484,6 +607,7 @@ export function renderSettingsScreen(config, onSave) {
       renderColorSwatches(group, draft.drops[index].color, (color) => {
         draft.drops[index].color = normalizeColor(color);
         renderDropList();
+        renderPreview();
       });
     });
 
@@ -621,6 +745,12 @@ export function renderSettingsScreen(config, onSave) {
     renderPreview();
   });
 
+  endDateInput.addEventListener('input', updateEndDateDuration);
+  clearEndDateButton.addEventListener('click', () => {
+    endDateInput.value = '';
+    updateEndDateDuration();
+  });
+
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     let valid = true;
@@ -678,15 +808,18 @@ export function renderSettingsScreen(config, onSave) {
 
     draft.cycleGapHours = gap;
     draft.cycles = count;
+    draft.endDate = document.getElementById('settingsEndDate')?.value || '';
     showSaveFeedback();
     onSave({
       drops: draft.drops.map((drop) => ({ ...drop })),
       cycles: draft.cycles,
       cycleGapHours: draft.cycleGapHours,
+      endDate: draft.endDate || null,
     });
     document.getElementById('settings-saved-message').classList.remove('hidden');
   });
 
   renderDropList();
   renderPreview();
+  updateEndDateDuration();
 }

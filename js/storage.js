@@ -43,6 +43,26 @@ export function isExpired(data) {
   return elapsed > 24 * 60 * 60 * 1000;
 }
 
+// Returns true if endDate is set AND today's date is strictly after it
+export function isTherapyExpired(settings) {
+  if (!settings?.endDate) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const end = new Date(settings.endDate);
+  end.setHours(0, 0, 0, 0);
+  return today > end;
+}
+
+// Returns days remaining (negative if expired, null if no endDate)
+export function daysRemaining(settings) {
+  if (!settings?.endDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const end = new Date(settings.endDate);
+  end.setHours(0, 0, 0, 0);
+  return Math.round((end - today) / (1000 * 60 * 60 * 24));
+}
+
 // ── Notified Keys Storage ──
 export function getNotifiedKeys() {
   try {
