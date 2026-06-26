@@ -3,7 +3,7 @@
 // Gestisce: caching offline, notifiche locali, click su notifica
 // ─────────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'colliri-cache-v1';
+const CACHE_NAME = 'memocollirio-sw-v1';
 
 // Asset da pre-cacheare all'installazione
 const PRECACHE_URLS = [
@@ -15,11 +15,7 @@ const PRECACHE_URLS = [
 ];
 
 // Dominî da cacheare a runtime (CDN Tailwind + Google Fonts)
-const RUNTIME_CACHE_HOSTS = [
-  'cdn.tailwindcss.com',
-  'fonts.googleapis.com',
-  'fonts.gstatic.com',
-];
+const RUNTIME_CACHE_HOSTS = [];
 
 // ── Install ──────────────────────────────────────────────────
 self.addEventListener('install', (event) => {

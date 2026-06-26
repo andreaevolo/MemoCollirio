@@ -2,16 +2,59 @@ export const STORAGE_KEY = 'healeyetracker_data';
 export const NOTIFIED_KEYS_STORAGE = 'healeyetracker_notified';
 export const SETTINGS_STORAGE_KEY = 'healeyestracker_settings';
 
+function isPlainObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasValidDoseArray(value) {
+  return Array.isArray(value?.doses)
+    && value.doses.every((dose) => isPlainObject(dose) && typeof dose.time === 'string' && typeof dose.taken === 'boolean');
+}
+
+function validateScheduleData(value) {
+  if (!isPlainObject(value)) return false;
+  const hasCreatedAt = typeof value.createdAt === 'string' || typeof value.createdAt === 'number';
+  if (hasCreatedAt && hasValidDoseArray(value)) return true;
+  if (hasCreatedAt && Array.isArray(value.schedule)) return true;
+  if (isPlainObject(value.schedule)) {
+    const nestedHasCreatedAt = typeof value.schedule.createdAt === 'string' || typeof value.schedule.createdAt === 'number';
+    return nestedHasCreatedAt && hasValidDoseArray(value.schedule);
+  }
+  return false;
+}
+
+function validateSettingsData(value) {
+  return isPlainObject(value)
+    && Array.isArray(value.drops)
+    && value.drops.every((drop) => isPlainObject(drop))
+    && Number.isFinite(Number(value.cycles))
+    && Number.isFinite(Number(value.cycleGapHours));
+}
+
+function validateNotifiedKeys(value) {
+  return Array.isArray(value) && value.every((key) => typeof key === 'string');
+}
+
+function safeLoad(key, validator) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (validator(parsed)) return parsed;
+    localStorage.removeItem(key);
+    return null;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
+}
+
 export function saveSchedule(schedule) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(schedule));
 }
 
 export function loadSchedule() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
+  return safeLoad(STORAGE_KEY, validateScheduleData);
 }
 
 export function clearSchedule() {
@@ -24,13 +67,7 @@ export function saveSettings(settings) {
 }
 
 export function loadSettings() {
-  try {
-    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+  return safeLoad(SETTINGS_STORAGE_KEY, validateSettingsData);
 }
 
 export function clearSettings() {
@@ -65,10 +102,7 @@ export function daysRemaining(settings) {
 
 // ── Notified Keys Storage ──
 export function getNotifiedKeys() {
-  try {
-    const raw = localStorage.getItem(NOTIFIED_KEYS_STORAGE);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+  return safeLoad(NOTIFIED_KEYS_STORAGE, validateNotifiedKeys) || [];
 }
 
 export function addNotifiedKey(key) {

@@ -27,6 +27,14 @@ export const DROPS = [
 
 export const CYCLES = 1;
 export const CYCLE_GAP_HOURS = 1;
+export const TOLERANCE_MINUTES = 10;
+export const PRE_ALERT_MINUTES = 5;
+export const POST_ALERT_MINUTES = 5;
+export const NOTIFICATION_CHECK_INTERVAL = 60000;
+export const MAX_NOTE_LENGTH = 120;
+export const MAX_CYCLES = 6;
+export const MAX_CYCLE_GAP_HOURS = 12;
+export const MAX_OFFSET_MINUTES = 240;
 export { STORAGE_KEY, NOTIFIED_KEYS_STORAGE, SETTINGS_STORAGE_KEY };
 
 // Color mappings for Tailwind classes (we can't use dynamic classes with CDN build, so we map them)
@@ -123,13 +131,17 @@ function cloneDrops(drops) {
 
 export function getEffectiveConfig() {
   const defaults = {
-    drops: cloneDrops(DROPS),
+    drops: cloneDrops(DROPS).map((drop) => ({ ...drop, activeCycles: CYCLES })),
     cycles: CYCLES,
     cycleGapHours: CYCLE_GAP_HOURS,
   };
   const saved = loadSettings();
 
   if (!saved || typeof saved !== "object") return defaults;
+
+  const cycles = Number.isInteger(Number(saved.cycles))
+    ? Math.min(MAX_CYCLES, Math.max(1, Number(saved.cycles)))
+    : defaults.cycles;
 
   const drops =
     Array.isArray(saved.drops) && saved.drops.length
@@ -146,16 +158,17 @@ export function getEffectiveConfig() {
             ? drop.color
             : "sky",
           offsetMinutes: Number.isInteger(Number(drop?.offsetMinutes))
-            ? Math.min(240, Math.max(0, Number(drop.offsetMinutes)))
+            ? Math.min(MAX_OFFSET_MINUTES, Math.max(0, Number(drop.offsetMinutes)))
             : 0,
+          activeCycles: Number.isInteger(Number(drop?.activeCycles))
+            ? Math.min(cycles, Math.max(1, Number(drop.activeCycles)))
+            : cycles,
+          note: typeof drop?.note === "string" ? drop.note.slice(0, MAX_NOTE_LENGTH) : "",
         }))
       : defaults.drops;
 
-  const cycles = Number.isInteger(Number(saved.cycles))
-    ? Math.min(6, Math.max(1, Number(saved.cycles)))
-    : defaults.cycles;
   const cycleGapHours = Number.isFinite(Number(saved.cycleGapHours))
-    ? Math.min(12, Math.max(1, Number(saved.cycleGapHours)))
+    ? Math.min(MAX_CYCLE_GAP_HOURS, Math.max(1, Number(saved.cycleGapHours)))
     : defaults.cycleGapHours;
 
   return { drops, cycles, cycleGapHours };

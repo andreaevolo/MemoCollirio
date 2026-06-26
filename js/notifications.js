@@ -1,21 +1,23 @@
-import { getEffectiveConfig } from './config.js';
+import {
+  getEffectiveConfig,
+  NOTIFICATION_CHECK_INTERVAL,
+  POST_ALERT_MINUTES,
+  PRE_ALERT_MINUTES,
+} from './config.js';
 import { timeToMinutes } from './utils.js';
 import { getNotifiedKeys, addNotifiedKey, loadSchedule } from './storage.js';
 import { elements } from './ui.js';
 
 export let swRegistration = null;
 let notificationInterval = null;
-const PRE_ALERT_MINUTES = 5;
-const POST_ALERT_MINUTES = 5;
 const TRIGGER_TAG_PREFIXES = ['pre-dose-', 'post-dose-'];
 
 export async function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     try {
       swRegistration = await navigator.serviceWorker.register('./sw.js');
-      console.log('[SW] Registrato con successo:', swRegistration.scope);
     } catch (err) {
-      console.warn('[SW] Registrazione fallita:', err);
+      console.error('[SW] Registrazione fallita:', err);
     }
   }
 }
@@ -215,7 +217,7 @@ export function checkNotificationSchedule() {
     if (delta < -720) delta += 1440;
 
     const preKey = `pre_${index}`;
-    if (delta >= -5 && delta <= -4 && !dose.taken && !notifiedKeys.includes(preKey)) {
+    if (delta >= -PRE_ALERT_MINUTES && delta <= -(PRE_ALERT_MINUTES - 1) && !dose.taken && !notifiedKeys.includes(preKey)) {
       sendNotification(
         `💧 ${drop.name} tra 5 minuti`,
         `Tra 5 minuti ricordati di prendere il ${drop.name} (ore ${dose.time}).`,
@@ -225,7 +227,7 @@ export function checkNotificationSchedule() {
     }
 
     const postKey = `post_${index}`;
-    if (delta >= 5 && delta <= 6 && !dose.taken && !notifiedKeys.includes(postKey)) {
+    if (delta >= POST_ALERT_MINUTES && delta <= POST_ALERT_MINUTES + 1 && !dose.taken && !notifiedKeys.includes(postKey)) {
       sendNotification(
         `⚠️ ${drop.name} non preso!`,
         `Attenzione: non hai ancora preso il ${drop.name} previsto per le ${dose.time}! Apri l'app per registrarlo.`,
@@ -245,5 +247,5 @@ export function startNotificationChecker() {
   }
 
   checkNotificationSchedule();
-  notificationInterval = setInterval(checkNotificationSchedule, 60 * 1000);
+  notificationInterval = setInterval(checkNotificationSchedule, NOTIFICATION_CHECK_INTERVAL);
 }

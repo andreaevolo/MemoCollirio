@@ -1,4 +1,11 @@
-import { COLOR_MAP, getEffectiveConfig } from './config.js';
+import {
+  COLOR_MAP,
+  getEffectiveConfig,
+  MAX_CYCLE_GAP_HOURS,
+  MAX_CYCLES,
+  MAX_NOTE_LENGTH,
+  MAX_OFFSET_MINUTES,
+} from './config.js';
 import { daysRemaining, loadSchedule, loadSettings } from './storage.js';
 import { formatDateIT, minutesToTime } from './utils.js';
 
@@ -17,6 +24,7 @@ export const elements = {
   startHourInput: document.getElementById('start-hour'),
   startMinuteInput: document.getElementById('start-minute'),
   setupTimeHint: document.getElementById('setup-time-hint'),
+  setupTimeError: document.getElementById('setup-time-error'),
   setupFirstDropName: document.getElementById('setup-first-drop-name'),
   btnUseNow: document.getElementById('btn-use-now'),
   btnGenerate: document.getElementById('btn-generate'),
@@ -63,7 +71,16 @@ function normalizeColor(color) {
 function clampOffset(value) {
   const number = Number(value);
   if (!Number.isInteger(number)) return 0;
-  return Math.min(240, Math.max(0, number));
+  return Math.min(MAX_OFFSET_MINUTES, Math.max(0, number));
+}
+
+function clampActiveCycles(value, maxCycles) {
+  const limit = Number.isInteger(Number(maxCycles))
+    ? Math.min(MAX_CYCLES, Math.max(1, Number(maxCycles)))
+    : MAX_CYCLES;
+  const number = Number(value);
+  if (!Number.isInteger(number)) return limit;
+  return Math.min(limit, Math.max(1, number));
 }
 
 function parseDateOnly(value) {
@@ -120,6 +137,7 @@ export function showSetup() {
     elements.setupTimeHint.textContent = previousStartTime ? `Ieri hai iniziato alle ${previousStartTime}` : '';
     elements.setupTimeHint.classList.toggle('hidden', !previousStartTime);
   }
+  elements.setupTimeError?.classList.add('hidden');
 
   elements.welcomeScreen.classList.add('hidden');
   elements.setupScreen.classList.remove('hidden');
@@ -408,11 +426,13 @@ export function renderSettingsScreen(config, onSave) {
           shortName: drop?.shortName || drop?.name || '',
           color: normalizeColor(drop?.color),
           offsetMinutes: clampOffset(drop?.offsetMinutes),
+          activeCycles: clampActiveCycles(drop?.activeCycles, config.cycles),
           note: drop?.note ?? savedDrops[index]?.note ?? '',
+          isCollapsed: true,
         }))
       : [],
-    cycles: Number.isInteger(Number(config.cycles)) ? Math.min(6, Math.max(1, Number(config.cycles))) : 1,
-    cycleGapHours: Number.isFinite(Number(config.cycleGapHours)) ? Math.min(12, Math.max(1, Number(config.cycleGapHours))) : 1,
+    cycles: Number.isInteger(Number(config.cycles)) ? Math.min(MAX_CYCLES, Math.max(1, Number(config.cycles))) : 1,
+    cycleGapHours: Number.isFinite(Number(config.cycleGapHours)) ? Math.min(MAX_CYCLE_GAP_HOURS, Math.max(1, Number(config.cycleGapHours))) : 1,
     endDate: config.endDate || '',
   };
   let addColor = 'sky';
@@ -443,7 +463,7 @@ export function renderSettingsScreen(config, onSave) {
           </div>
           <div class="mt-4">
             <label for="new-drop-offset" class="settings-label">Minuti dal primo collirio del turno</label>
-            <input id="new-drop-offset" class="settings-input" type="number" min="0" max="240" step="1" value="0" inputmode="numeric" />
+            <input id="new-drop-offset" class="settings-input" type="number" min="0" max="${MAX_OFFSET_MINUTES}" step="1" value="0" inputmode="numeric" />
             <p class="mt-2 text-sm text-slate-400">es. 0 = subito, 30 = dopo 30 minuti</p>
             <p id="new-drop-offset-error" class="hidden settings-error">Inserisci un numero intero tra 0 e 240</p>
           </div>
@@ -463,12 +483,12 @@ export function renderSettingsScreen(config, onSave) {
         <div class="grid sm:grid-cols-2 gap-4">
           <div>
             <label for="cycle-gap-hours" class="settings-label">Ore tra i turni</label>
-            <input id="cycle-gap-hours" class="settings-input" type="number" min="1" max="12" step="0.5" value="${escapeHtml(draft.cycleGapHours)}" inputmode="decimal" />
+            <input id="cycle-gap-hours" class="settings-input" type="number" min="1" max="${MAX_CYCLE_GAP_HOURS}" step="0.5" value="${escapeHtml(draft.cycleGapHours)}" inputmode="decimal" />
             <p id="cycle-gap-error" class="hidden settings-error">Inserisci un valore tra 1 e 12 ore</p>
           </div>
           <div>
             <label for="cycle-count" class="settings-label">Numero di turni</label>
-            <input id="cycle-count" class="settings-input" type="number" min="1" max="6" step="1" value="${escapeHtml(draft.cycles)}" inputmode="numeric" />
+            <input id="cycle-count" class="settings-input" type="number" min="1" max="${MAX_CYCLES}" step="1" value="${escapeHtml(draft.cycles)}" inputmode="numeric" />
             <p id="cycle-count-error" class="hidden settings-error">Inserisci un numero intero tra 1 e 6</p>
           </div>
         </div>
@@ -591,17 +611,18 @@ export function renderSettingsScreen(config, onSave) {
       return;
     }
 
-    const cycles = Number.isInteger(Number(draft.cycles)) ? Math.min(6, Math.max(1, Number(draft.cycles))) : 1;
-    const gapHours = Number.isFinite(Number(draft.cycleGapHours)) ? Math.min(12, Math.max(1, Number(draft.cycleGapHours))) : 1;
+    const cycles = Number.isInteger(Number(draft.cycles)) ? Math.min(MAX_CYCLES, Math.max(1, Number(draft.cycles))) : 1;
+    const gapHours = Number.isFinite(Number(draft.cycleGapHours)) ? Math.min(MAX_CYCLE_GAP_HOURS, Math.max(1, Number(draft.cycleGapHours))) : 1;
     const gapMinutes = Math.round(gapHours * 60);
 
     preview.innerHTML = Array.from({ length: cycles }, (_, cycle) => {
       const cycleBase = PREVIEW_START_MINUTES + cycle * gapMinutes;
-      const rows = draft.drops.map((drop, index) => {
+      const activeDrops = draft.drops.filter((drop) => cycle < clampActiveCycles(drop.activeCycles, cycles));
+      const rows = activeDrops.map((drop, index) => {
         const color = normalizeColor(drop.color);
         const offset = clampOffset(drop.offsetMinutes);
         return `
-          <div class="flex items-center gap-3 text-sm sm:text-base ${index === draft.drops.length - 1 ? '' : 'border-b border-slate-700/60 pb-2'}">
+          <div class="flex items-center gap-3 text-sm sm:text-base ${index === activeDrops.length - 1 ? '' : 'border-b border-slate-700/60 pb-2'}">
             <span class="w-16 shrink-0 font-mono font-bold text-slate-400">${String(offset).padStart(2, '0')} min</span>
             <span class="w-14 shrink-0 font-mono font-extrabold text-white">${minutesToTime(cycleBase + offset)}</span>
             <span class="h-3 w-3 shrink-0 rounded-full ${COLOR_MAP[color].dot}"></span>
@@ -622,6 +643,14 @@ export function renderSettingsScreen(config, onSave) {
     }).join('');
   }
 
+  function expandDropCard(card, index) {
+    draft.drops[index].isCollapsed = false;
+    card.querySelector('.drop-settings-content')?.classList.remove('hidden');
+    card.querySelector('.drop-toggle')?.setAttribute('aria-expanded', 'true');
+    card.querySelector('.drop-toggle svg')?.classList.add('rotate-180');
+    card.querySelector('.drop-toggle')?.parentElement?.classList.add('mb-4');
+  }
+
   function renderDropList() {
     saveError.classList.toggle('hidden', !hasTriedSave || draft.drops.length > 0);
 
@@ -638,6 +667,9 @@ export function renderSettingsScreen(config, onSave) {
 
     dropList.innerHTML = draft.drops.map((drop, index) => {
       const color = normalizeColor(drop.color);
+      const isCollapsed = drop.isCollapsed !== false;
+      const contentId = `drop-settings-content-${index}`;
+      const title = drop.name?.trim() || 'Collirio ' + (index + 1);
       return `
         <article class="drop-settings-card" data-index="${index}">
           <div class="flex items-start gap-3">
@@ -646,46 +678,24 @@ export function renderSettingsScreen(config, onSave) {
             </button>
 
             <div class="min-w-0 flex-1">
-              <div class="flex items-center justify-between gap-3 mb-4">
-                <div class="flex items-center gap-2 min-w-0">
+              <div class="flex items-center justify-between gap-3 ${isCollapsed ? '' : 'mb-4'}">
+                <button type="button"
+                  class="drop-toggle min-w-0 flex flex-1 items-center gap-2 rounded-xl px-2 py-2 text-left transition-colors hover:bg-slate-700/35 focus:outline-none focus:ring-2 focus:ring-sky-500/70"
+                  data-index="${index}"
+                  aria-expanded="${!isCollapsed}"
+                  aria-controls="${contentId}">
                   <span class="h-3 w-3 shrink-0 rounded-full ${COLOR_MAP[color].dot}"></span>
-                  <span class="truncate font-extrabold text-white">Collirio ${index + 1}</span>
-                </div>
+                  <span class="truncate font-extrabold text-white">${escapeHtml(title)}</span>
+                  <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform ${isCollapsed ? '' : 'rotate-180'}" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" />
+                  </svg>
+                </button>
                 <button type="button" class="delete-drop rounded-xl p-2 text-red-400 hover:bg-red-500/10 hover:text-red-300" data-index="${index}" aria-label="Elimina ${escapeHtml(drop.name)}">
                   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673A2.25 2.25 0 0 1 15.916 21H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                   </svg>
                 </button>
               </div>
-
-              <div class="grid sm:grid-cols-2 gap-4">
-                <div>
-                  <label class="settings-label" for="drop-name-${index}">Nome</label>
-                  <input id="drop-name-${index}" class="settings-input drop-name" type="text" value="${escapeHtml(drop.name)}" data-index="${index}" />
-                  <p class="hidden settings-error drop-name-error">Il nome non può essere vuoto</p>
-                </div>
-                <div>
-                  <label class="settings-label" for="drop-short-name-${index}">Nome breve</label>
-                  <input id="drop-short-name-${index}" class="settings-input drop-short-name" type="text" value="${escapeHtml(drop.shortName)}" data-index="${index}" />
-                </div>
-              </div>
-
-              <div class="mt-4">
-                <label class="settings-label" for="drop-offset-${index}">Minuti dal primo collirio del turno</label>
-                <input id="drop-offset-${index}" class="settings-input drop-offset" type="number" min="0" max="240" step="1" value="${escapeHtml(drop.offsetMinutes)}" data-index="${index}" inputmode="numeric" />
-                <p class="mt-2 text-sm text-slate-400">es. 0 = subito, 30 = dopo 30 minuti</p>
-                <p class="hidden settings-error drop-offset-error">Inserisci un numero intero tra 0 e 240</p>
-              </div>
-
-              <div class="mt-4">
-                <label class="settings-label" for="drop-note-${index}">Nota (opzionale)</label>
-                <input id="drop-note-${index}" class="settings-input drop-note" type="text" maxlength="120" placeholder="es. agita prima dell'uso" value="${escapeHtml(drop.note || '')}" data-index="${index}" />
-              </div>
-
-              <fieldset class="mt-4">
-                <legend class="settings-label">Colore</legend>
-                <div class="drop-colors grid grid-cols-6 gap-3 max-w-[15rem]" data-index="${index}"></div>
-              </fieldset>
 
               <div class="delete-confirm hidden mt-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4">
                 <p class="font-bold text-red-200 mb-3">Eliminare?</p>
@@ -694,11 +704,60 @@ export function renderSettingsScreen(config, onSave) {
                   <button type="button" class="cancel-delete flex-1 rounded-xl bg-slate-700 px-3 py-2 font-bold text-white">No</button>
                 </div>
               </div>
+
+              <div id="${contentId}" class="drop-settings-content ${isCollapsed ? 'hidden' : ''}">
+                <div class="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="settings-label" for="drop-name-${index}">Nome</label>
+                    <input id="drop-name-${index}" class="settings-input drop-name" type="text" value="${escapeHtml(drop.name)}" data-index="${index}" />
+                    <p class="hidden settings-error drop-name-error">Il nome non può essere vuoto</p>
+                  </div>
+                  <div>
+                    <label class="settings-label" for="drop-short-name-${index}">Nome breve</label>
+                    <input id="drop-short-name-${index}" class="settings-input drop-short-name" type="text" value="${escapeHtml(drop.shortName)}" data-index="${index}" />
+                  </div>
+                </div>
+
+                <div class="mt-4">
+                  <label class="settings-label" for="drop-offset-${index}">Minuti dal primo collirio del turno</label>
+                  <input id="drop-offset-${index}" class="settings-input drop-offset" type="number" min="0" max="${MAX_OFFSET_MINUTES}" step="1" value="${escapeHtml(drop.offsetMinutes)}" data-index="${index}" inputmode="numeric" />
+                  <p class="mt-2 text-sm text-slate-400">es. 0 = subito, 30 = dopo 30 minuti</p>
+                  <p class="hidden settings-error drop-offset-error">Inserisci un numero intero tra 0 e 240</p>
+                </div>
+
+                <div class="mt-4">
+                  <label class="settings-label" for="drop-active-cycles-${index}">Turni in cui usare questo collirio</label>
+                  <input id="drop-active-cycles-${index}" class="settings-input drop-active-cycles" type="number" min="1" max="${escapeHtml(draft.cycles)}" step="1" value="${escapeHtml(clampActiveCycles(drop.activeCycles, draft.cycles))}" data-index="${index}" inputmode="numeric" />
+                  <p class="mt-2 text-sm text-slate-400">es. 3 = solo nei primi 3 turni di oggi</p>
+                  <p class="hidden settings-error drop-active-cycles-error">Inserisci un numero intero tra 1 e ${escapeHtml(draft.cycles)}</p>
+                </div>
+
+                <div class="mt-4">
+                  <label class="settings-label" for="drop-note-${index}">Nota (opzionale)</label>
+                  <input id="drop-note-${index}" class="settings-input drop-note" type="text" maxlength="${MAX_NOTE_LENGTH}" placeholder="es. agita prima dell'uso" value="${escapeHtml(drop.note || '')}" data-index="${index}" />
+                </div>
+
+                <fieldset class="mt-4">
+                  <legend class="settings-label">Colore</legend>
+                  <div class="drop-colors grid grid-cols-6 gap-3 max-w-[15rem]" data-index="${index}"></div>
+                </fieldset>
+              </div>
             </div>
           </div>
         </article>
       `;
     }).join('');
+
+    dropList.querySelectorAll('.drop-toggle').forEach((button) => {
+      button.addEventListener('click', () => {
+        const index = Number(button.dataset.index);
+        const drop = draft.drops[index];
+        if (!drop) return;
+
+        drop.isCollapsed = drop.isCollapsed === false;
+        renderDropList();
+      });
+    });
 
     dropList.querySelectorAll('.drop-colors').forEach((group) => {
       const index = Number(group.dataset.index);
@@ -726,6 +785,14 @@ export function renderSettingsScreen(config, onSave) {
     dropList.querySelectorAll('.drop-offset').forEach((input) => {
       input.addEventListener('input', () => {
         draft.drops[Number(input.dataset.index)].offsetMinutes = input.value;
+        clearError(input, input.nextElementSibling.nextElementSibling);
+        renderPreview();
+      });
+    });
+
+    dropList.querySelectorAll('.drop-active-cycles').forEach((input) => {
+      input.addEventListener('input', () => {
+        draft.drops[Number(input.dataset.index)].activeCycles = input.value;
         clearError(input, input.nextElementSibling.nextElementSibling);
         renderPreview();
       });
@@ -808,7 +875,7 @@ export function renderSettingsScreen(config, onSave) {
       showError(nameInput, nameError);
       valid = false;
     }
-    if (!/^\d+$/.test(offsetInput.value) || !Number.isInteger(offset) || offset < 0 || offset > 240) {
+    if (!/^\d+$/.test(offsetInput.value) || !Number.isInteger(offset) || offset < 0 || offset > MAX_OFFSET_MINUTES) {
       showError(offsetInput, offsetError);
       valid = false;
     }
@@ -819,7 +886,9 @@ export function renderSettingsScreen(config, onSave) {
       shortName: shortNameInput.value.trim() || nameInput.value.trim(),
       color: normalizeColor(addColor),
       offsetMinutes: offset,
+      activeCycles: clampActiveCycles(draft.cycles, draft.cycles),
       note: '',
+      isCollapsed: true,
     });
     nameInput.value = '';
     shortNameInput.value = '';
@@ -846,6 +915,16 @@ export function renderSettingsScreen(config, onSave) {
 
   document.getElementById('cycle-count').addEventListener('input', (event) => {
     draft.cycles = event.target.value;
+    draft.drops.forEach((drop) => {
+      drop.activeCycles = clampActiveCycles(drop.activeCycles, draft.cycles);
+    });
+    document.querySelectorAll('.drop-active-cycles').forEach((input) => {
+      const limit = clampActiveCycles(draft.cycles, draft.cycles);
+      const index = Number(input.dataset.index);
+      input.max = String(limit);
+      input.value = String(clampActiveCycles(draft.drops[index]?.activeCycles, limit));
+      input.nextElementSibling.nextElementSibling.textContent = `Inserisci un numero intero tra 1 e ${limit}`;
+    });
     clearError(event.target, document.getElementById('cycle-count-error'));
     renderPreview();
   });
@@ -871,18 +950,32 @@ export function renderSettingsScreen(config, onSave) {
       const nameError = card.querySelector('.drop-name-error');
       const offsetInput = card.querySelector('.drop-offset');
       const offsetError = card.querySelector('.drop-offset-error');
+      const activeCyclesInput = card.querySelector('.drop-active-cycles');
+      const activeCyclesError = card.querySelector('.drop-active-cycles-error');
       const noteInput = card.querySelector('.drop-note');
       const offset = Number(offsetInput.value);
+      const activeCycles = Number(activeCyclesInput.value);
+      const activeCyclesLimit = Number.isInteger(Number(draft.cycles))
+        ? Math.min(MAX_CYCLES, Math.max(1, Number(draft.cycles)))
+        : MAX_CYCLES;
 
       clearError(nameInput, nameError);
       clearError(offsetInput, offsetError);
+      clearError(activeCyclesInput, activeCyclesError);
 
       if (!nameInput.value.trim()) {
         showError(nameInput, nameError);
+        expandDropCard(card, index);
         valid = false;
       }
-      if (!/^\d+$/.test(offsetInput.value) || !Number.isInteger(offset) || offset < 0 || offset > 240) {
+      if (!/^\d+$/.test(offsetInput.value) || !Number.isInteger(offset) || offset < 0 || offset > MAX_OFFSET_MINUTES) {
         showError(offsetInput, offsetError);
+        expandDropCard(card, index);
+        valid = false;
+      }
+      if (!/^\d+$/.test(activeCyclesInput.value) || !Number.isInteger(activeCycles) || activeCycles < 1 || activeCycles > activeCyclesLimit) {
+        showError(activeCyclesInput, activeCyclesError);
+        expandDropCard(card, index);
         valid = false;
       }
 
@@ -890,6 +983,7 @@ export function renderSettingsScreen(config, onSave) {
       draft.drops[index].shortName = card.querySelector('.drop-short-name').value.trim() || nameInput.value.trim();
       draft.drops[index].color = normalizeColor(draft.drops[index].color);
       draft.drops[index].offsetMinutes = clampOffset(offset);
+      draft.drops[index].activeCycles = clampActiveCycles(activeCycles, activeCyclesLimit);
       draft.drops[index].note = noteInput.value.trim();
     });
 
@@ -903,11 +997,11 @@ export function renderSettingsScreen(config, onSave) {
     clearError(gapInput, gapError);
     clearError(countInput, countError);
 
-    if (!Number.isFinite(gap) || gap < 1 || gap > 12) {
+    if (!Number.isFinite(gap) || gap < 1 || gap > MAX_CYCLE_GAP_HOURS) {
       showError(gapInput, gapError);
       valid = false;
     }
-    if (!/^\d+$/.test(countInput.value) || !Number.isInteger(count) || count < 1 || count > 6) {
+    if (!/^\d+$/.test(countInput.value) || !Number.isInteger(count) || count < 1 || count > MAX_CYCLES) {
       showError(countInput, countError);
       valid = false;
     }
@@ -918,7 +1012,7 @@ export function renderSettingsScreen(config, onSave) {
     draft.endDate = document.getElementById('settingsEndDate')?.value || '';
     showSaveFeedback();
     onSave({
-      drops: draft.drops.map((drop) => ({ ...drop })),
+      drops: draft.drops.map(({ isCollapsed, ...drop }) => ({ ...drop })),
       cycles: draft.cycles,
       cycleGapHours: draft.cycleGapHours,
       endDate: draft.endDate || null,

@@ -1,4 +1,4 @@
-import { getEffectiveConfig } from './config.js';
+import { getEffectiveConfig, TOLERANCE_MINUTES } from './config.js';
 import { pad, minutesToTime, timeToMinutes, getCurrentTimeStr } from './utils.js';
 import {
   loadSchedule,
@@ -42,40 +42,34 @@ let pendingRecalc = null;
 let previousScreen = 'setup';
 let cameFromWelcome = false;
 let triggerScheduleRunId = 0;
-const TOLERANCE_MINUTES = 10;
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
 
 function getScheduleConfig() {
   return schedule?.config || getEffectiveConfig();
 }
 
-function normalizeTimePart(input, max) {
+function normalizeTimePart(input, max, { strict = false } = {}) {
   if (!input) return null;
   if (input.value.trim() === '') return null;
   const value = Number(input.value);
-  if (!Number.isFinite(value)) return null;
+  if (!Number.isFinite(value) || !Number.isInteger(value)) return null;
+  if (strict && (value < 0 || value > max)) return null;
   const clamped = Math.min(max, Math.max(0, Math.trunc(value)));
   input.value = pad(clamped);
   return input.value;
 }
 
 function getSetupStartTime() {
-  const hour = normalizeTimePart(elements.startHourInput, 23);
-  const minute = normalizeTimePart(elements.startMinuteInput, 59);
+  elements.setupTimeError?.classList.add('hidden');
+  const hour = normalizeTimePart(elements.startHourInput, 23, { strict: true });
+  const minute = normalizeTimePart(elements.startMinuteInput, 59, { strict: true });
 
   if (hour === null) {
+    elements.setupTimeError?.classList.remove('hidden');
     elements.startHourInput?.focus();
     return null;
   }
   if (minute === null) {
+    elements.setupTimeError?.classList.remove('hidden');
     elements.startMinuteInput?.focus();
     return null;
   }
@@ -121,6 +115,11 @@ function generateSchedule(startTimeStr) {
   for (let cycle = 0; cycle < config.cycles; cycle++) {
     const cycleBase = baseMinutes + cycle * config.cycleGapHours * 60;
     config.drops.forEach((drop, dropIndex) => {
+      const activeCycles = Number.isInteger(Number(drop.activeCycles))
+        ? Math.min(config.cycles, Math.max(1, Number(drop.activeCycles)))
+        : config.cycles;
+      if (cycle >= activeCycles) return;
+
       doses.push({
         cycle,
         dropIndex,
@@ -177,7 +176,19 @@ function handleToggleDose(index) {
     if (hasFutureDoses) {
       const direction = delta > 0 ? 'in ritardo' : 'in anticipo';
       const drop = getScheduleConfig().drops[dose.dropIndex];
-      elements.recalcMessage.innerHTML = `Hai preso <strong class="text-white">${escapeHtml(drop.name)}</strong> alle <strong class="text-white">${actualTime}</strong> invece delle <strong class="text-white">${scheduledTime}</strong> (${absDelta} min ${direction}).<br><br>Vuoi ricalcolare gli orari dei prossimi colliri?`;
+      elements.recalcMessage.replaceChildren();
+      elements.recalcMessage.append(
+        'Hai preso ',
+        Object.assign(document.createElement('strong'), { className: 'text-white', textContent: drop.name }),
+        ' alle ',
+        Object.assign(document.createElement('strong'), { className: 'text-white', textContent: actualTime }),
+        ' invece delle ',
+        Object.assign(document.createElement('strong'), { className: 'text-white', textContent: scheduledTime }),
+        ` (${absDelta} min ${direction}).`,
+        document.createElement('br'),
+        document.createElement('br'),
+        'Vuoi ricalcolare gli orari dei prossimi colliri?'
+      );
 
       pendingRecalc = { index, deltaMinutes: delta };
       elements.recalcModal.classList.remove('hidden');
@@ -288,6 +299,7 @@ function syncActiveScheduleDisplayConfig(newConfig) {
       name: updatedDrop.name,
       shortName: updatedDrop.shortName,
       color: updatedDrop.color,
+      activeCycles: updatedDrop.activeCycles,
     };
   });
 
@@ -450,7 +462,6 @@ elements.recalcModal.addEventListener('click', (event) => {
 elements.btnEnableNotifications.addEventListener('click', async () => {
   try {
     const permission = await Notification.requestPermission();
-    console.log('[Notifiche] Permesso:', permission);
     updateNotificationBanner();
     if (permission === 'granted') {
       scheduleAllFutureDoseTriggers({ clearExisting: true });
